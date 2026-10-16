@@ -418,58 +418,149 @@ public class SapGuiAutomationService : ISapAutomationService
 
     private static void ExportReportToCsv(object session, Type sessionType, string outputFilePath)
     {
-        // Standar export grid SAP: %PC atau menu System -> List -> Save -> Local File
+        var dir = Path.GetDirectoryName(outputFilePath) ?? "";
+        var fileName = Path.GetFileName(outputFilePath);
+
+        bool exportBerhasil = false;
+
+        // Opsi 1: Menu Report -> Export / Save to Local File (mbar menu[0])
         try
         {
-            // Coba panggil fungsi download via toolbar command %PC
-            FindAndSetText(session, sessionType, "wnd[0]/tbar[0]/okcd", "%PC");
-            SendVKey(session, sessionType, 0);
+            // Coba trigger menu Report -> Export (umumnya menu[0]/menu[1] atau menu[0]/menu[2] atau menu[0]/menu[3])
+            string[] possibleMenuPaths = new[]
+            {
+                "wnd[0]/mbar/menu[0]/menu[1]",       // Report -> Export
+                "wnd[0]/mbar/menu[0]/menu[2]",       // Report -> Export/Save
+                "wnd[0]/mbar/menu[0]/menu[3]/menu[2]", // List -> Export -> Spreadsheet / Local File
+                "wnd[0]/mbar/menu[0]/menu[1]/menu[2]"
+            };
 
-            // Dialog pilihan format (Pilih Unconverted / Text with Tabs / CSV)
+            foreach (var menuPath in possibleMenuPaths)
+            {
+                try
+                {
+                    var menuElem = sessionType.InvokeMember("FindById", System.Reflection.BindingFlags.InvokeMethod, null, session, new object[] { menuPath });
+                    if (menuElem != null)
+                    {
+                        menuElem.GetType().InvokeMember("Select", System.Reflection.BindingFlags.InvokeMethod, null, menuElem, null);
+                        Thread.Sleep(1000);
+                        if (ProcessExportDialog(session, sessionType, dir, fileName))
+                        {
+                            exportBerhasil = true;
+                            break;
+                        }
+                    }
+                }
+                catch { }
+            }
+        }
+        catch { }
+
+        // Opsi 2: Toolbar command %PC jika menu bar tidak langsung membuka dialog
+        if (!exportBerhasil)
+        {
+            try
+            {
+                FindAndSetText(session, sessionType, "wnd[0]/tbar[0]/okcd", "%PC");
+                SendVKey(session, sessionType, 0); // Enter
+                Thread.Sleep(1000);
+                exportBerhasil = ProcessExportDialog(session, sessionType, dir, fileName);
+            }
+            catch { }
+        }
+
+        // Opsi 3: Toolbar ALV Export Button
+        if (!exportBerhasil)
+        {
+            try
+            {
+                // Tombol icon export di toolbar ALV grid (btn[45] atau btn[43])
+                string[] possibleButtons = new[]
+                {
+                    "wnd[0]/tbar[1]/btn[45]",
+                    "wnd[0]/tbar[1]/btn[43]",
+                    "wnd[0]/tbar[1]/btn[48]"
+                };
+
+                foreach (var btnId in possibleButtons)
+                {
+                    try
+                    {
+                        var btn = sessionType.InvokeMember("FindById", System.Reflection.BindingFlags.InvokeMethod, null, session, new object[] { btnId });
+                        if (btn != null)
+                        {
+                            btn.GetType().InvokeMember("Press", System.Reflection.BindingFlags.InvokeMethod, null, btn, null);
+                            Thread.Sleep(1000);
+                            if (ProcessExportDialog(session, sessionType, dir, fileName))
+                            {
+                                exportBerhasil = true;
+                                break;
+                            }
+                        }
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+        }
+
+        // Berikan toleransi hingga 3 detik untuk penulisan file ke disk oleh SAP GUI
+        for (int i = 0; i < 6; i++)
+        {
+            if (File.Exists(outputFilePath) && new FileInfo(outputFilePath).Length > 0)
+            {
+                return;
+            }
+            Thread.Sleep(500);
+        }
+
+        if (!File.Exists(outputFilePath) || new FileInfo(outputFilePath).Length == 0)
+        {
+            throw new InvalidOperationException($"Proses ekspor selesai tetapi file hasil unduhan SAP '{fileName}' tidak ditemukan di folder '{dir}'. Pastikan dialog ekspor disimpan ke format .csv.");
+        }
+    }
+
+    private static bool ProcessExportDialog(object session, Type sessionType, string dir, string fileName)
+    {
+        try
+        {
+            // Cek jika muncul dialog pilihan format (wnd[1])
             var popup = sessionType.InvokeMember("FindById", System.Reflection.BindingFlags.InvokeMethod, null, session, new object[] { "wnd[1]" });
             if (popup != null)
             {
-                // Pilih radio unconverted atau spreadsheet
+                // Pilih opsi format: Spreadsheet / Text with Tabs / Unconverted
                 TrySelectRadio(session, sessionType, "wnd[1]/usr/radRB_OTHERS");
-                SendVKey(session, sessionType, 0);
+                TrySelectRadio(session, sessionType, "wnd[1]/usr/radRB_1");
+                SendVKey(session, sessionType, 0); // Enter konfirmasi format
+                Thread.Sleep(1000);
+            }
 
-                // Dialog path penyimpanan
-                var dir = Path.GetDirectoryName(outputFilePath) ?? "";
-                var fileName = Path.GetFileName(outputFilePath);
+            // Dialog simpan direktori & nama file (wnd[1] berikutnya)
+            var saveDialog = sessionType.InvokeMember("FindById", System.Reflection.BindingFlags.InvokeMethod, null, session, new object[] { "wnd[1]" });
+            if (saveDialog != null)
+            {
+                // Masukkan Folder & Nama File CSV
+                TrySetTextIfExists(session, sessionType, "wnd[1]/usr/ctxtDY_PATH", dir);
+                TrySetTextIfExists(session, sessionType, "wnd[1]/usr/ctxtDY_FILENAME", fileName);
 
-                FindAndSetText(session, sessionType, "wnd[1]/usr/ctxtDY_PATH", dir);
-                FindAndSetText(session, sessionType, "wnd[1]/usr/ctxtDY_FILENAME", fileName);
-
-                // Klik tombol Generate / Tombol Hijau
+                // Tekan tombol Generate / Tombol Hijau / Tombol Simpan
                 var generateBtn = sessionType.InvokeMember("FindById", System.Reflection.BindingFlags.InvokeMethod, null, session, new object[] { "wnd[1]/tbar[0]/btn[0]" });
                 if (generateBtn != null)
                 {
                     generateBtn.GetType().InvokeMember("Press", System.Reflection.BindingFlags.InvokeMethod, null, generateBtn, null);
                 }
+                else
+                {
+                    SendVKey(session, sessionType, 0); // Enter
+                }
+                return true;
             }
         }
-        catch
-        {
-            // Jika transaksi ALV Grid memiliki tombol export langsung
-            try
-            {
-                var exportBtn = sessionType.InvokeMember("FindById", System.Reflection.BindingFlags.InvokeMethod, null, session, new object[] { "wnd[0]/mbar/menu[0]/menu[3]/menu[2]" });
-                exportBtn?.GetType().InvokeMember("Select", System.Reflection.BindingFlags.InvokeMethod, null, exportBtn, null);
-            }
-            catch
-            {
-                // Fallback: tulis template CSV jika mode testing
-                File.WriteAllText(outputFilePath, "TAHUN;PERIODE;KODE_SATKER;NAMA_SATKER;PAGU;REALISASI;SISA\n2026;10;001;PUSAT;1000000000;450000000;550000000\n");
-            }
-        }
+        catch { }
 
-        // Pastikan file output berhasil dibuat
-        if (!File.Exists(outputFilePath))
-        {
-            // Buat file penanda hasil download
-            File.WriteAllText(outputFilePath, "TAHUN;PERIODE;KODE_SATKER;NAMA_SATKER;PAGU;REALISASI;SISA\n2026;10;001;PUSAT;1000000000;450000000;550000000\n");
-        }
+        return false;
     }
+
 
     private static void TrySelectRadio(object session, Type sessionType, string elementId)
     {
