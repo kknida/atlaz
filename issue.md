@@ -1,4 +1,4 @@
-﻿# ISSUE: Rencana Pengembangan Aplikasi Desktop Bot Atlaz (Ekstraksi Data SAP & Sinkronisasi Web Darsana)
+# ISSUE: Rencana Pengembangan Aplikasi Desktop Bot Atlaz (Ekstraksi Data SAP & Sinkronisasi Web Darsana)
 
 ## 1. Metadata Dokumen
 - **Nama Proyek:** Atlaz
@@ -6,7 +6,7 @@
 - **Target Platform:** Windows Desktop (.NET 8 / WPF - MVVM).
 - **Metode Pengembangan:** 4 Tahapan Bertahap (*Phase-Gated Development Roadmap*).
 - **Tujuan Dokumen:** Panduan arsitektur *high-level* terstruktur untuk agen AI pelaksana agar mengimplementasikan proyek per tahap secara terkontrol.
-- **Status:** Planning / Ready for Phase 1
+- **Status:** In Progress (Tahap 2: Uji Coba Server & Penguatan Engine SAP GUI)
 
 ---
 
@@ -276,13 +276,14 @@ Ketika mengimplementasikan proyek ini, agen AI pelaksana wajib mengikuti panduan
 ## 8. Kriteria Penerimaan (Acceptance Criteria per Tahap)
 
 ### Tahap 1: Desain Interface
-- [ ] Antarmuka WPF berhasil berjalan menampilkan Dashboard, Pengaturan Jadwal, Konfigurasi Akun, dan Riwayat Log.
-- [ ] Tombol dan kontrol UI responsif dengan indikator visual yang jelas.
-- [ ] UI telah di-review dan disetujui (OK) oleh user.
+- [x] Antarmuka WPF berhasil berjalan menampilkan Dashboard, Pengaturan Jadwal, Konfigurasi Akun, dan Riwayat Log.
+- [x] Tombol dan kontrol UI responsif dengan indikator visual yang jelas.
+- [x] UI telah di-review dan disetujui (OK) oleh user.
 
 ### Tahap 2: Otomasi SAP GUI
-- [ ] Bot dapat membuka SAP GUI, login otomatis sesuai kredensial, dan membuka transaksi `ZFM001`.
-- [ ] Bot berhasil mengisi parameter laporan dan mengekspor data ke file CSV lokal.
+- [x] Implementasi late-binding COM SAP GUI Scripting Engine (`ISapAutomationService`).
+- [x] Diagnostik kesiapan koneksi SAP GUI & penanganan retry ROT entry.
+- [ ] Uji coba login otomatis, transaksi `ZFM001`, dan ekspor CSV di komputer server SAP tuntas.
 - [ ] Sesi SAP GUI ditutup dan di-logout secara bersih tanpa sisa proses di Task Manager.
 
 ### Tahap 3: Verifikasi Format Data CSV
@@ -295,13 +296,16 @@ Ketika mengimplementasikan proyek ini, agen AI pelaksana wajib mengikuti panduan
 - [ ] Bot memverifikasi bahwa Web Darsana telah berhasil mengimpor file tersebut.
 - [ ] File CSV lokal dipindahkan ke folder arsip dan riwayat sukses tercatat di log/database.
 
-### Tahap 3: Verifikasi Format Data CSV
-- [ ] File CSV divalidasi struktur kolom header, delimiter, isi baris ($\ge 1$), dan checksum hash.
-- [ ] Jika format salah/file rusak: Proses berhenti, log tercatat, dan notifikasi dikembalikan ke UI (Tahap 1).
-- [ ] Jika format benar: File lolos verifikasi dengan status OK dan siap dikirim.
+---
 
-### Tahap 4: Upload Data ke Web Darsana
-- [ ] File CSV terkirim ke server Web Darsana melalui jalur transfer yang disetujui (SFTP/API terdaftar) tanpa terkena blokir HTTP 403 Imunify360.
-- [ ] Bot memverifikasi bahwa Web Darsana telah berhasil mengimpor file tersebut.
-- [ ] File CSV lokal dipindahkan ke folder arsip dan riwayat sukses tercatat di log/database.
+## 9. Catatan Teknis & Penanganan Kendala (Troubleshooting Log)
+
+### Kendala: "Gagal mendapatkan entri ROT SAPGUI"
+- **Penyebab:** Objek COM `SapROTWr.SapROTWrapper` terdaftar, tetapi fungsi `GetROTEntry("SAPGUI")` menghasilkan `null`.
+- **Solusi & Mitigasi yang Diterapkan:**
+  1. Menambahkan fitur pengecekan mandiri di UI melalui tombol **"🔍 Cek Kesiapan SAP"**.
+  2. Menambahkan mekanisme *retry* hingga 5 kali toleransi inisialisasi proses `saplogon.exe`.
+  3. Memastikan opsi *Scripting* di SAP Logon telah dicentang:
+     - Buka **SAP Logon** -> **Options** -> **Accessibility & Scripting** -> **Scripting** -> Centang **"Enable scripting"**.
+  4. Menyamakan level hak akses (*run level*): jalankan SAP Logon dan Atlaz dengan hak akses pengguna yang setara (hindari satu Administrator dan satu Non-Administrator).
 

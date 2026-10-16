@@ -80,6 +80,31 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    public void DiagnoseSap()
+    {
+        var results = _sapAutomationService.Diagnose();
+        var allOk = results.All(r => r.Sukses);
+
+        var report = string.Join("\n", results.Select(r => $"{r.Pesan}"));
+        StatusMessage = allOk 
+            ? "Hasil Diagnosis: SAP GUI & Scripting Engine siap digunakan!" 
+            : $"Diagnosis SAP:\n{report}";
+
+        foreach (var item in results)
+        {
+            ExecutionHistory.Insert(0, new ExecutionHistoryItem
+            {
+                Timestamp = DateTime.Now,
+                Step = "Diagnostik SAP",
+                FileName = "-",
+                RecordCount = 0,
+                Status = item.Sukses ? BotStatus.Success : BotStatus.Warning,
+                Message = $"{item.Langkah}: {item.Pesan}"
+            });
+        }
+    }
+
+    [RelayCommand]
     public async Task RunManualSyncAsync()
     {
         if (IsRunning) return;

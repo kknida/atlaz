@@ -28,5 +28,10 @@ public interface ISapAutomationService
     /// Memeriksa apakah SAP GUI terpasang di komputer saat ini
     /// </summary>
     bool IsSapGuiInstalled();
+
+    /// <summary>
+    /// Melakukan diagnosis langkah-per-langkah kesiapan SAP GUI Scripting
+    /// </summary>
+    List<(string Langkah, bool Sukses, string Pesan)> Diagnose();
 }
 

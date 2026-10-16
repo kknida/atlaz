@@ -11,7 +11,6 @@ public class SapGuiAutomationService : ISapAutomationService
     {
         try
         {
-            // Cek registri COM SapROTWr.SapROTWrapper atau file saplogon.exe
             var type = Type.GetTypeFromProgID("SapROTWr.SapROTWrapper");
             if (type != null) return true;
 
@@ -24,6 +23,79 @@ public class SapGuiAutomationService : ISapAutomationService
             return false;
         }
     }
+
+    /// <summary>
+    /// Melakukan diagnosis langkah-per-langkah kesiapan SAP GUI Scripting.
+    /// Mengembalikan daftar hasil cek (langkah, status, pesan).
+    /// </summary>
+    public List<(string Langkah, bool Sukses, string Pesan)> Diagnose()
+    {
+        var hasil = new List<(string, bool, string)>();
+
+        // Langkah 1: Cek apakah COM class terdaftar
+        var rotType = Type.GetTypeFromProgID("SapROTWr.SapROTWrapper");
+        bool comTerdaftar = rotType != null;
+        hasil.Add(("1. COM SapROTWr terdaftar",
+            comTerdaftar,
+            comTerdaftar
+                ? "✔ Komponen SAP GUI Scripting terdeteksi di registri Windows."
+                : "✘ 'SapROTWr.SapROTWrapper' tidak ditemukan. Pastikan SAP GUI sudah terinstal dengan opsi Scripting."));
+
+        if (!comTerdaftar) return hasil;
+
+        // Langkah 2: Cek proses saplogon berjalan
+        var proses = Process.GetProcessesByName("saplogon");
+        bool sapBerjalan = proses.Length > 0;
+        hasil.Add(("2. Proses saplogon.exe berjalan",
+            sapBerjalan,
+            sapBerjalan
+                ? $"✔ SAP Logon sedang berjalan ({proses.Length} proses)."
+                : "✘ SAP Logon tidak berjalan. Buka SAP Logon terlebih dahulu sebelum menjalankan Atlaz."));
+
+        if (!sapBerjalan) return hasil;
+
+        // Langkah 3: Cek GetROTEntry("SAPGUI")
+        object? rotWrapper = null;
+        object? sapRotObj = null;
+        try
+        {
+            rotWrapper = Activator.CreateInstance(rotType!);
+            sapRotObj = rotType!.InvokeMember("GetROTEntry",
+                System.Reflection.BindingFlags.InvokeMethod, null, rotWrapper, ["SAPGUI"]);
+
+            bool rotBerhasil = sapRotObj != null;
+            hasil.Add(("3. GetROTEntry('SAPGUI') berhasil",
+                rotBerhasil,
+                rotBerhasil
+                    ? "✔ SAP GUI ROT entry ditemukan."
+                    : "✘ GetROTEntry mengembalikan null. Kemungkinan: (a) Tidak ada koneksi SAP yang terbuka, atau (b) Scripting belum diaktifkan di SAP GUI Options."));
+
+            if (!rotBerhasil) return hasil;
+
+            // Langkah 4: Cek GetScriptingEngine
+            var sapRotType = sapRotObj!.GetType();
+            var engine = sapRotType.InvokeMember("GetScriptingEngine",
+                System.Reflection.BindingFlags.InvokeMethod, null, sapRotObj, null);
+            bool engineOk = engine != null;
+            hasil.Add(("4. Scripting Engine aktif",
+                engineOk,
+                engineOk
+                    ? "✔ SAP GUI Scripting Engine aktif dan siap digunakan."
+                    : "✘ Scripting Engine tidak aktif. Di SAP: Options → Accessibility & Scripting → centang 'Enable Scripting'. Hubungi Basis jika perlu aktivasi server-side (sapgui/user_scripting=TRUE)."));
+        }
+        catch (Exception ex)
+        {
+            hasil.Add(("3-4. Uji COM", false, $"✘ Terjadi exception saat uji COM: {ex.Message}"));
+        }
+        finally
+        {
+            ReleaseCom(sapRotObj);
+            ReleaseCom(rotWrapper);
+        }
+
+        return hasil;
+    }
+
 
     public async Task<SapExecutionResult> ExecuteZfm001DownloadAsync(
         string systemId,
@@ -70,26 +142,40 @@ public class SapGuiAutomationService : ISapAutomationService
                     if (exePath != null)
                     {
                         Process.Start(new ProcessStartInfo(exePath) { UseShellExecute = true });
-                        Thread.Sleep(3000); // Tunggu GUI terinisialisasi
+                        Thread.Sleep(5000); // Tunggu GUI terinisialisasi lebih lama
                     }
                     else
                     {
-                        throw new FileNotFoundException("SAP Logon (saplogon.exe) tidak ditemukan pada direktori default.");
+                        throw new FileNotFoundException("SAP Logon (saplogon.exe) tidak ditemukan pada direktori standar. Pastikan SAP GUI sudah terinstal.");
                     }
                 }
 
                 statusCallback?.Invoke("Menghubungkan ke SAP GUI Scripting Engine...");
 
-                // 2. Akses COM Scripting Wrapper (Late-binding agar tidak membutuhkan DLL statis saat build)
+                // 2. Akses COM Scripting Wrapper (Late-binding)
                 var rotType = Type.GetTypeFromProgID("SapROTWr.SapROTWrapper")
-                    ?? throw new InvalidOperationException("Komponen SAP GUI Scripting (SapROTWr.SapROTWrapper) tidak terdaftar. Pastikan Scripting aktif di SAP GUI.");
+                    ?? throw new InvalidOperationException("Komponen SAP GUI Scripting (SapROTWr.SapROTWrapper) tidak terdaftar di Windows. Pastikan SAP GUI diinstal beserta komponen SAP GUI Scripting.");
 
                 rotWrapper = Activator.CreateInstance(rotType);
-                sapRotObj = rotType.InvokeMember("GetROTEntry", System.Reflection.BindingFlags.InvokeMethod, null, rotWrapper, new object[] { "SAPGUI" });
+
+                // Coba retry hingga 5 kali untuk menunggu ROT SAPGUI aktif
+                for (int attempt = 1; attempt <= 5; attempt++)
+                {
+                    try
+                    {
+                        sapRotObj = rotType.InvokeMember("GetROTEntry", System.Reflection.BindingFlags.InvokeMethod, null, rotWrapper, new object[] { "SAPGUI" });
+                        if (sapRotObj != null) break;
+                    }
+                    catch
+                    {
+                        // Tunggu dan coba kembali
+                    }
+                    Thread.Sleep(1000);
+                }
 
                 if (sapRotObj == null)
                 {
-                    throw new InvalidOperationException("Gagal mendapatkan entri ROT SAPGUI. Pastikan SAP GUI berjalan.");
+                    throw new InvalidOperationException("Gagal mendapatkan entri ROT SAPGUI. Kemungkinan penyebab:\n1. SAP Logon belum terbuka atau baru dibuka (buka jendela SAP Logon terlebih dahulu).\n2. Fitur Scripting belum diaktifkan di SAP GUI (Buka SAP Logon -> Options -> Accessibility & Scripting -> Scripting -> Centang 'Enable scripting').\n3. Aplikasi Atlaz dan SAP GUI berjalan di level hak akses (privilege) yang berbeda (misal yang satu Run as Administrator, yang lain tidak).");
                 }
 
                 var sapRotType = sapRotObj.GetType();
@@ -97,8 +183,9 @@ public class SapGuiAutomationService : ISapAutomationService
 
                 if (sapGuiApp == null)
                 {
-                    throw new InvalidOperationException("Scripting Support tidak aktif di SAP GUI atau server. Aktifkan sapgui/user_scripting di SAP.");
+                    throw new InvalidOperationException("Scripting Support tidak aktif di SAP GUI atau server. Pastikan 'Enable scripting' dicentang di SAP GUI Options dan parameter sapgui/user_scripting=TRUE di server SAP.");
                 }
+
 
                 // 3. Buka koneksi ke sistem SAP
                 statusCallback?.Invoke($"Membuka koneksi ke sistem SAP: {systemId}...");
