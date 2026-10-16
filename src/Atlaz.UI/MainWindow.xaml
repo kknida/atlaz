@@ -6,9 +6,9 @@
         xmlns:vm="clr-namespace:Atlaz.UI.ViewModels"
         mc:Ignorable="d"
         Title="Atlaz" 
-        Height="680" Width="1020" 
+        Height="700" Width="1060" 
         WindowStartupLocation="CenterScreen"
-        Background="#F4F6F9"
+        Background="#F1F5F9"
         FontFamily="Segoe UI">
 
     <Window.DataContext>
@@ -19,35 +19,57 @@
         <!-- Nav Button Style -->
         <Style x:Key="NavBtnStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#D1D5DB"/>
+            <Setter Property="Foreground" Value="#CBD5E1"/>
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Padding" Value="16,12"/>
+            <Setter Property="Padding" Value="18,14"/>
             <Setter Property="HorizontalContentAlignment" Value="Left"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#374151"/>
+                    <Setter Property="Background" Value="#334155"/>
                     <Setter Property="Foreground" Value="#FFFFFF"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- Card Style -->
+        <!-- Card Panel Style -->
         <Style x:Key="CardPanel" TargetType="Border">
             <Setter Property="Background" Value="#FFFFFF"/>
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="Padding" Value="20"/>
             <Setter Property="Margin" Value="0,0,0,16"/>
-            <Setter Property="BorderBrush" Value="#E5E7EB"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
             <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+
+        <!-- Default TextBox Style -->
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#FFFFFF"/>
+            <Setter Property="Foreground" Value="#0F172A"/>
+            <Setter Property="BorderBrush" Value="#94A3B8"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Focusable" Value="True"/>
+            <Setter Property="IsHitTestVisible" Value="True"/>
+            <Setter Property="IsEnabled" Value="True"/>
+        </Style>
+
+        <!-- Default CheckBox Style -->
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground" Value="#1E293B"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
     </Window.Resources>
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="240"/>
+            <ColumnDefinition Width="250"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
@@ -56,14 +78,15 @@
             <DockPanel LastChildFill="True">
                 <!-- App Title / Logo -->
                 <StackPanel DockPanel.Dock="Top" Margin="20,24,20,30">
-                    <TextBlock Text="ATLAZ" FontSize="24" FontWeight="Bold" Foreground="#38BDF8"/>
+                    <TextBlock Text="ATLAZ" FontSize="26" FontWeight="Bold" Foreground="#38BDF8"/>
+                    <TextBlock Text="Desktop Automation Engine" FontSize="11" Foreground="#94A3B8" Margin="0,4,0,0"/>
                 </StackPanel>
 
                 <!-- Footer Status -->
-                <Border DockPanel.Dock="Bottom" Background="#0F172A" Padding="16,12">
+                <Border DockPanel.Dock="Bottom" Background="#0F172A" Padding="16,14">
                     <StackPanel>
-                        <TextBlock Text="Status Server:" FontSize="11" Foreground="#94A3B8"/>
-                        <TextBlock Text="Online" FontSize="12" FontWeight="SemiBold" Foreground="#38BDF8"/>
+                        <TextBlock Text="Mode Sistem:" FontSize="11" Foreground="#94A3B8"/>
+                        <TextBlock Text="Tahap 2 (Otomasi SAP Aktif)" FontSize="12" FontWeight="SemiBold" Foreground="#38BDF8"/>
                     </StackPanel>
                 </Border>
 
@@ -83,41 +106,62 @@
 
         <!-- MAIN CONTENT AREA -->
         <Grid Grid.Column="1" Margin="24">
-            
+
             <!-- 1. DASHBOARD VIEW -->
             <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <StackPanel>
-                    <StackPanel.Style>
-                        <Style TargetType="StackPanel">
-                            <Setter Property="Visibility" Value="Collapsed"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding CurrentView}" Value="Dashboard">
-                                    <Setter Property="Visibility" Value="Visible"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </StackPanel.Style>
+                <ScrollViewer.Style>
+                    <Style TargetType="ScrollViewer">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding CurrentView}" Value="Dashboard">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ScrollViewer.Style>
 
-                    <TextBlock Text="Ringkasan Status Bot" FontSize="22" FontWeight="Bold" Foreground="#1E293B" Margin="0,0,0,16"/>
+                <StackPanel>
+                    <TextBlock Text="Dashboard Kontrol Atlaz" FontSize="22" FontWeight="Bold" Foreground="#0F172A" Margin="0,0,0,16"/>
+
+                    <!-- Action Banner: UJI COBA RUN MANUAL -->
+                    <Border Background="#E0F2FE" BorderBrush="#7DD3FC" BorderThickness="1.5" CornerRadius="8" Padding="20" Margin="0,0,0,16">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
+                                <TextBlock Text="Uji Coba Eksekusi Otomasi (Manual Run)" FontSize="16" FontWeight="Bold" Foreground="#0369A1"/>
+                                <TextBlock Text="Tekan tombol untuk menguji alur otomasi SAP ZFM001 secara langsung dari parameter yang telah Anda konfigurasi." 
+                                           FontSize="12" Foreground="#0284C7" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <Button Grid.Column="1" 
+                                    Content="▶  RUN MANUAL SEKARANG" 
+                                    Command="{Binding RunManualSyncCommand}"
+                                    Background="#0284C7" Foreground="#FFFFFF" 
+                                    FontSize="14" FontWeight="Bold" 
+                                    Padding="20,12" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
 
                     <!-- Metric Cards -->
                     <UniformGrid Columns="3" Margin="0,0,0,16">
                         <Border Style="{StaticResource CardPanel}" Margin="0,0,8,0">
                             <StackPanel>
-                                <TextBlock Text="STATUS BOT" FontSize="11" FontWeight="Bold" Foreground="#64748B"/>
-                                <TextBlock Text="{Binding StatusMessage}" FontSize="15" FontWeight="SemiBold" Foreground="#0284C7" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                <TextBlock Text="STATUS SISTEM" FontSize="11" FontWeight="Bold" Foreground="#64748B"/>
+                                <TextBlock Text="{Binding StatusMessage}" FontSize="14" FontWeight="SemiBold" Foreground="#0284C7" Margin="0,8,0,0" TextWrapping="Wrap"/>
                             </StackPanel>
                         </Border>
                         <Border Style="{StaticResource CardPanel}" Margin="4,0,4,0">
                             <StackPanel>
                                 <TextBlock Text="JADWAL BERIKUTNYA" FontSize="11" FontWeight="Bold" Foreground="#64748B"/>
-                                <TextBlock Text="{Binding NextScheduleTime}" FontSize="15" FontWeight="SemiBold" Foreground="#1E293B" Margin="0,8,0,0"/>
+                                <TextBlock Text="{Binding NextScheduleTime}" FontSize="14" FontWeight="SemiBold" Foreground="#1E293B" Margin="0,8,0,0"/>
                             </StackPanel>
                         </Border>
                         <Border Style="{StaticResource CardPanel}" Margin="8,0,0,0">
                             <StackPanel>
                                 <TextBlock Text="EKSEKUSI TERAKHIR" FontSize="11" FontWeight="Bold" Foreground="#64748B"/>
-                                <TextBlock Text="{Binding LastRunTime}" FontSize="15" FontWeight="SemiBold" Foreground="#1E293B" Margin="0,8,0,0"/>
+                                <TextBlock Text="{Binding LastRunTime}" FontSize="14" FontWeight="SemiBold" Foreground="#1E293B" Margin="0,8,0,0"/>
                             </StackPanel>
                         </Border>
                     </UniformGrid>
@@ -125,7 +169,7 @@
                     <!-- 4-Phase Step Progress Card -->
                     <Border Style="{StaticResource CardPanel}">
                         <StackPanel>
-                            <TextBlock Text="Alur Proses 4 Tahap" FontSize="16" FontWeight="SemiBold" Foreground="#1E293B"/>
+                            <TextBlock Text="Indikator Tahap Otomasi" FontSize="16" FontWeight="SemiBold" Foreground="#0F172A"/>
                             <TextBlock Text="{Binding PhaseStatusText}" FontSize="13" Foreground="#475569" Margin="0,4,0,14"/>
 
                             <ProgressBar Value="{Binding ProgressValue}" Height="12" Maximum="100" Margin="0,0,0,16" Background="#E2E8F0" Foreground="#0284C7"/>
@@ -148,14 +192,6 @@
                                     <TextBlock Text="Sync Data" FontSize="12" Foreground="#64748B" HorizontalAlignment="Center"/>
                                 </StackPanel>
                             </UniformGrid>
-
-                            <Separator Margin="0,20,0,20" Background="#E2E8F0"/>
-
-                            <Button Content="▶  Jalankan Sinkronisasi Sekarang (Manual Run)" 
-                                    Command="{Binding RunManualSyncCommand}"
-                                    Background="#0284C7" Foreground="#FFFFFF" 
-                                    FontSize="14" FontWeight="Bold" 
-                                    Padding="18,10" BorderThickness="0" Cursor="Hand" HorizontalAlignment="Left"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -163,38 +199,45 @@
 
             <!-- 2. SCHEDULER VIEW -->
             <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <StackPanel>
-                    <StackPanel.Style>
-                        <Style TargetType="StackPanel">
-                            <Setter Property="Visibility" Value="Collapsed"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding CurrentView}" Value="Scheduler">
-                                    <Setter Property="Visibility" Value="Visible"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </StackPanel.Style>
+                <ScrollViewer.Style>
+                    <Style TargetType="ScrollViewer">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding CurrentView}" Value="Scheduler">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ScrollViewer.Style>
 
-                    <TextBlock Text="Pengaturan Jadwal Otomasi" FontSize="22" FontWeight="Bold" Foreground="#1E293B" Margin="0,0,0,16"/>
+                <StackPanel>
+                    <TextBlock Text="Pengaturan Jadwal Otomasi" FontSize="22" FontWeight="Bold" Foreground="#0F172A" Margin="0,0,0,16"/>
                     <Border Style="{StaticResource CardPanel}">
                         <StackPanel>
-                            <CheckBox Content="Aktifkan Penjadwalan Otomatis" IsChecked="{Binding Schedule.IsEnabled}" FontWeight="SemiBold" Margin="0,0,0,16"/>
+                            <CheckBox Content="Aktifkan Penjadwalan Otomatis" 
+                                      IsChecked="{Binding Schedule.IsEnabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                                      FontWeight="SemiBold" FontSize="14" Margin="0,0,0,18"/>
 
-                            <TextBlock Text="Waktu Eksekusi Harian (HH:mm):" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                            <TextBox Text="{Binding Schedule.ScheduledTimeString, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="160" HorizontalAlignment="Left" Padding="8,6" Margin="0,0,0,16"/>
+                            <TextBlock Text="Waktu Eksekusi Harian (Format HH:mm):" FontSize="13" FontWeight="SemiBold" Foreground="#475569" Margin="0,0,0,6"/>
+                            <TextBox Text="{Binding Schedule.ScheduledTimeString, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                                     Width="180" HorizontalAlignment="Left" Margin="0,0,0,18"/>
 
-                            <TextBlock Text="Hari Aktif Eksekusi:" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,10"/>
-                            <WrapPanel Margin="0,0,0,20">
-                                <CheckBox Content="Senin" IsChecked="{Binding Schedule.RunOnMonday}" Margin="0,0,16,8"/>
-                                <CheckBox Content="Selasa" IsChecked="{Binding Schedule.RunOnTuesday}" Margin="0,0,16,8"/>
-                                <CheckBox Content="Rabu" IsChecked="{Binding Schedule.RunOnWednesday}" Margin="0,0,16,8"/>
-                                <CheckBox Content="Kamis" IsChecked="{Binding Schedule.RunOnThursday}" Margin="0,0,16,8"/>
-                                <CheckBox Content="Jumat" IsChecked="{Binding Schedule.RunOnFriday}" Margin="0,0,16,8"/>
-                                <CheckBox Content="Sabtu" IsChecked="{Binding Schedule.RunOnSaturday}" Margin="0,0,16,8"/>
-                                <CheckBox Content="Minggu" IsChecked="{Binding Schedule.RunOnSunday}" Margin="0,0,16,8"/>
+                            <TextBlock Text="Pilihan Hari Eksekusi:" FontSize="13" FontWeight="SemiBold" Foreground="#475569" Margin="0,0,0,10"/>
+                            <WrapPanel Margin="0,0,0,24">
+                                <CheckBox Content="Senin" IsChecked="{Binding Schedule.RunOnMonday, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,18,10"/>
+                                <CheckBox Content="Selasa" IsChecked="{Binding Schedule.RunOnTuesday, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,18,10"/>
+                                <CheckBox Content="Rabu" IsChecked="{Binding Schedule.RunOnWednesday, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,18,10"/>
+                                <CheckBox Content="Kamis" IsChecked="{Binding Schedule.RunOnThursday, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,18,10"/>
+                                <CheckBox Content="Jumat" IsChecked="{Binding Schedule.RunOnFriday, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,18,10"/>
+                                <CheckBox Content="Sabtu" IsChecked="{Binding Schedule.RunOnSaturday, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,18,10"/>
+                                <CheckBox Content="Minggu" IsChecked="{Binding Schedule.RunOnSunday, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,18,10"/>
                             </WrapPanel>
 
-                            <Button Content="Simpan Jadwal" Command="{Binding SaveSettingsCommand}" Background="#059669" Foreground="#FFFFFF" FontWeight="Bold" Padding="14,8" HorizontalAlignment="Left" BorderThickness="0" Cursor="Hand"/>
+                            <Button Content="💾  Simpan Jadwal" 
+                                    Command="{Binding SaveSettingsCommand}" 
+                                    Background="#059669" Foreground="#FFFFFF" 
+                                    FontWeight="Bold" FontSize="13" 
+                                    Padding="18,10" HorizontalAlignment="Left" BorderThickness="0" Cursor="Hand"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -202,56 +245,56 @@
 
             <!-- 3. SETTINGS VIEW -->
             <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <StackPanel>
-                    <StackPanel.Style>
-                        <Style TargetType="StackPanel">
-                            <Setter Property="Visibility" Value="Collapsed"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding CurrentView}" Value="Settings">
-                                    <Setter Property="Visibility" Value="Visible"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </StackPanel.Style>
+                <ScrollViewer.Style>
+                    <Style TargetType="ScrollViewer">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding CurrentView}" Value="Settings">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ScrollViewer.Style>
 
-                    <TextBlock Text="Konfigurasi Sistem" FontSize="22" FontWeight="Bold" Foreground="#1E293B" Margin="0,0,0,16"/>
+                <StackPanel>
+                    <TextBlock Text="Konfigurasi Sistem" FontSize="22" FontWeight="Bold" Foreground="#0F172A" Margin="0,0,0,16"/>
                     
                     <!-- SAP Settings -->
                     <Border Style="{StaticResource CardPanel}">
                         <StackPanel>
-                            <TextBlock Text="Parameter SAP GUI (ZFM001)" FontSize="16" FontWeight="SemiBold" Foreground="#1E293B" Margin="0,0,0,12"/>
+                            <TextBlock Text="Parameter SAP GUI (ZFM001)" FontSize="16" FontWeight="SemiBold" Foreground="#0F172A" Margin="0,0,0,14"/>
                             
-                            <Grid Margin="0,0,0,8">
+                            <Grid Margin="0,0,0,10">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                    <TextBlock Text="System ID / Description:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
-                                    <TextBox Text="{Binding SapConfig.SystemId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Padding="8,6"/>
-                                 </StackPanel>
-                                 <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                                    <TextBlock Text="Client:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
-                                    <TextBox Text="{Binding SapConfig.Client, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Padding="8,6"/>
-                                 </StackPanel>
+                                    <TextBlock Text="System ID / Description SAP Logon:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
+                                    <TextBox Text="{Binding SapConfig.SystemId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                    <TextBlock Text="Client (Contoh: 100):" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
+                                    <TextBox Text="{Binding SapConfig.Client, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                </StackPanel>
                             </Grid>
 
-                            <Grid Margin="0,0,0,8">
+                            <Grid Margin="0,0,0,10">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Margin="0,0,8,0">
                                     <TextBlock Text="Username SAP:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
-                                    <TextBox Text="{Binding SapConfig.Username, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Padding="8,6"/>
+                                    <TextBox Text="{Binding SapConfig.Username, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Margin="8,0,0,0">
                                     <TextBlock Text="Password SAP:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
-                                    <TextBox Text="{Binding SapConfig.EncryptedPassword, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Padding="8,6"/>
+                                    <TextBox Text="{Binding SapConfig.EncryptedPassword, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                                 </StackPanel>
                             </Grid>
 
-                            <Grid Margin="0,0,0,8">
+                            <Grid Margin="0,0,0,10">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
@@ -259,15 +302,15 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Margin="0,0,6,0">
                                     <TextBlock Text="Kode Transaksi:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
-                                    <TextBox Text="{Binding SapConfig.TransactionCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Padding="8,6"/>
+                                    <TextBox Text="{Binding SapConfig.TransactionCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Margin="3,0,3,0">
                                     <TextBlock Text="Tahun Anggaran:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
-                                    <TextBox Text="{Binding SapConfig.FiscalYear, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Padding="8,6"/>
+                                    <TextBox Text="{Binding SapConfig.FiscalYear, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="2" Margin="6,0,0,0">
                                     <TextBlock Text="Periode:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
-                                    <TextBox Text="{Binding SapConfig.Period, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Padding="8,6"/>
+                                    <TextBox Text="{Binding SapConfig.Period, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                                 </StackPanel>
                             </Grid>
                         </StackPanel>
@@ -276,27 +319,31 @@
                     <!-- Remote Transfer Settings -->
                     <Border Style="{StaticResource CardPanel}">
                         <StackPanel>
-                            <TextBlock Text="Pengaturan Transfer SFTP" FontSize="16" FontWeight="SemiBold" Foreground="#1E293B" Margin="0,0,0,12"/>
+                            <TextBlock Text="Pengaturan Transfer SFTP" FontSize="16" FontWeight="SemiBold" Foreground="#0F172A" Margin="0,0,0,14"/>
 
-                            <Grid Margin="0,0,0,8">
+                            <Grid Margin="0,0,0,10">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="2*"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Margin="0,0,8,0">
                                     <TextBlock Text="Host Server SFTP:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
-                                    <TextBox Text="{Binding DarsanaConfig.Host, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Padding="8,6"/>
+                                    <TextBox Text="{Binding DarsanaConfig.Host, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                                    <TextBlock Text="Port:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
-                                    <TextBox Text="{Binding DarsanaConfig.Port, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Padding="8,6"/>
+                                    <TextBlock Text="Port SFTP (Default: 22):" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
+                                    <TextBox Text="{Binding DarsanaConfig.Port, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                                 </StackPanel>
                             </Grid>
 
                             <TextBlock Text="Remote Staging Path (Folder Server):" FontSize="12" Foreground="#64748B" Margin="0,4,0,4"/>
-                            <TextBox Text="{Binding DarsanaConfig.RemoteStagingPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Padding="8,6" Margin="0,0,0,16"/>
+                            <TextBox Text="{Binding DarsanaConfig.RemoteStagingPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,20"/>
 
-                            <Button Content="Simpan Konfigurasi" Command="{Binding SaveSettingsCommand}" Background="#0284C7" Foreground="#FFFFFF" FontWeight="Bold" Padding="14,8" HorizontalAlignment="Left" BorderThickness="0" Cursor="Hand"/>
+                            <Button Content="💾  Simpan Konfigurasi" 
+                                    Command="{Binding SaveSettingsCommand}" 
+                                    Background="#0284C7" Foreground="#FFFFFF" 
+                                    FontWeight="Bold" FontSize="13" 
+                                    Padding="18,10" HorizontalAlignment="Left" BorderThickness="0" Cursor="Hand"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -304,19 +351,19 @@
 
             <!-- 4. HISTORY VIEW -->
             <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <StackPanel>
-                    <StackPanel.Style>
-                        <Style TargetType="StackPanel">
-                            <Setter Property="Visibility" Value="Collapsed"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding CurrentView}" Value="History">
-                                    <Setter Property="Visibility" Value="Visible"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </StackPanel.Style>
+                <ScrollViewer.Style>
+                    <Style TargetType="ScrollViewer">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding CurrentView}" Value="History">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ScrollViewer.Style>
 
-                    <TextBlock Text="Riwayat Eksekusi &amp; Log" FontSize="22" FontWeight="Bold" Foreground="#1E293B" Margin="0,0,0,16"/>
+                <StackPanel>
+                    <TextBlock Text="Riwayat Eksekusi &amp; Log" FontSize="22" FontWeight="Bold" Foreground="#0F172A" Margin="0,0,0,16"/>
                     <Border Style="{StaticResource CardPanel}">
                         <DataGrid ItemsSource="{Binding ExecutionHistory}" 
                                   AutoGenerateColumns="False" 
@@ -325,11 +372,11 @@
                                   GridLinesVisibility="Horizontal"
                                   Background="White"
                                   BorderThickness="0"
-                                  RowHeight="32">
+                                  RowHeight="34">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Waktu" Binding="{Binding Timestamp, StringFormat=\{0:dd/MM/yyyy HH:mm\}}" Width="140"/>
-                                <DataGridTextColumn Header="Tahap / Tipe" Binding="{Binding Step}" Width="120"/>
-                                <DataGridTextColumn Header="File CSV" Binding="{Binding FileName}" Width="180"/>
+                                <DataGridTextColumn Header="Tahap / Tipe" Binding="{Binding Step}" Width="150"/>
+                                <DataGridTextColumn Header="File CSV" Binding="{Binding FileName}" Width="190"/>
                                 <DataGridTextColumn Header="Baris Data" Binding="{Binding RecordCount}" Width="90"/>
                                 <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="90"/>
                                 <DataGridTextColumn Header="Keterangan" Binding="{Binding Message}" Width="*"/>
