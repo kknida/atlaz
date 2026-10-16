@@ -187,15 +187,47 @@ public class SapGuiAutomationService : ISapAutomationService
                 }
 
 
-                // 3. Buka koneksi ke sistem SAP
-                statusCallback?.Invoke($"Membuka koneksi ke sistem SAP: {systemId}...");
+                // 3. Akses atau Buka Koneksi SAP
                 var appType = sapGuiApp.GetType();
-                connection = appType.InvokeMember("OpenConnection", System.Reflection.BindingFlags.InvokeMethod, null, sapGuiApp, new object[] { systemId, true });
+                var appChildren = appType.InvokeMember("Children", System.Reflection.BindingFlags.GetProperty, null, sapGuiApp, null);
+                var appChildrenCount = 0;
+                if (appChildren != null)
+                {
+                    try
+                    {
+                        appChildrenCount = (int)appChildren.GetType().InvokeMember("Count", System.Reflection.BindingFlags.GetProperty, null, appChildren, null)!;
+                    }
+                    catch { }
+                }
+
+                if (appChildrenCount > 0)
+                {
+                    // Gunakan koneksi yang sudah terbuka
+                    statusCallback?.Invoke("Menggunakan koneksi SAP yang sedang terbuka...");
+                    connection = appChildren!.GetType().InvokeMember("Item", System.Reflection.BindingFlags.InvokeMethod, null, appChildren, new object[] { 0 });
+                }
+                else
+                {
+                    // Buka koneksi baru sesuai nama server/deskripsi di SAP Logon
+                    statusCallback?.Invoke($"Membuka koneksi ke sistem SAP: '{systemId}'...");
+                    try
+                    {
+                        connection = appType.InvokeMember("OpenConnection", System.Reflection.BindingFlags.InvokeMethod, null, sapGuiApp, new object[] { systemId, true });
+                    }
+                    catch (Exception exOpen)
+                    {
+                        var inner = exOpen.InnerException?.Message ?? exOpen.Message;
+                        throw new InvalidOperationException($"Gagal membuka koneksi SAP dengan System ID / Nama Server '{systemId}'. Pastikan nama ini persis sama dengan nama entri di SAP Logon. Detail: {inner}");
+                    }
+                }
 
                 if (connection == null)
                 {
-                    throw new InvalidOperationException($"Gagal membuka koneksi ke SAP Server '{systemId}'. Periksa nama koneksi di SAP Logon.");
+                    throw new InvalidOperationException($"Koneksi ke SAP Server '{systemId}' tidak ditemukan atau gagal dibuat. Pastikan nama koneksi sesuai dengan entri di SAP Logon.");
                 }
+
+                // Berikan jeda sejenak agar jendela SAP GUI selesai render
+                Thread.Sleep(1500);
 
                 var connType = connection.GetType();
                 var children = connType.InvokeMember("Children", System.Reflection.BindingFlags.GetProperty, null, connection, null);
@@ -204,23 +236,38 @@ public class SapGuiAutomationService : ISapAutomationService
 
                 if (session == null)
                 {
-                    throw new InvalidOperationException("Gagal memperoleh sesi SAP GUI yang aktif.");
+                    throw new InvalidOperationException("Gagal memperoleh sesi SAP GUI yang aktif dari koneksi yang dipilih.");
                 }
 
                 var sessionType = session.GetType();
 
-                // 4. Proses Login
-                statusCallback?.Invoke($"Melakukan login otomatis (Client: {client}, User: {username})...");
-                FindAndSetText(session, sessionType, "wnd[0]/usr/txtRSYST-MANDT", client);
-                FindAndSetText(session, sessionType, "wnd[0]/usr/txtRSYST-BNAME", username);
-                FindAndSetText(session, sessionType, "wnd[0]/usr/pwdRSYST-BCODE", password);
-                FindAndSetText(session, sessionType, "wnd[0]/usr/txtRSYST-LANGU", "EN"); // Default English
+                // 4. Proses Login (hanya jika masih di layar login SAP wnd[0]/usr/txtRSYST-BNAME)
+                bool isLoginScreen = false;
+                try
+                {
+                    var userBox = sessionType.InvokeMember("FindById", System.Reflection.BindingFlags.InvokeMethod, null, session, new object[] { "wnd[0]/usr/txtRSYST-BNAME" });
+                    isLoginScreen = userBox != null;
+                }
+                catch { }
 
-                // Tekan Enter untuk Login
-                SendVKey(session, sessionType, 0); // VKey 0 = Enter
+                if (isLoginScreen)
+                {
+                    statusCallback?.Invoke($"Melakukan login otomatis (Client: {client}, User: {username})...");
+                    FindAndSetText(session, sessionType, "wnd[0]/usr/txtRSYST-MANDT", client);
+                    FindAndSetText(session, sessionType, "wnd[0]/usr/txtRSYST-BNAME", username);
+                    FindAndSetText(session, sessionType, "wnd[0]/usr/pwdRSYST-BCODE", password);
+                    FindAndSetText(session, sessionType, "wnd[0]/usr/txtRSYST-LANGU", "EN"); // Default English
 
-                // Handle Dialog Informasi / Lisensi multi-logon jika ada
-                HandlePossiblePopups(session, sessionType);
+                    // Tekan Enter untuk Login
+                    SendVKey(session, sessionType, 0); // VKey 0 = Enter
+
+                    // Handle Dialog Informasi / Lisensi multi-logon jika ada
+                    HandlePossiblePopups(session, sessionType);
+                }
+                else
+                {
+                    statusCallback?.Invoke("Sesi SAP sudah dalam posisi login. Melanjutkan langsung ke transaksi...");
+                }
 
                 // 5. Buka Transaksi ZFM001
                 statusCallback?.Invoke("Membuka transaksi /nZFM001...");
@@ -260,14 +307,16 @@ public class SapGuiAutomationService : ISapAutomationService
             catch (Exception ex)
             {
                 stopwatch.Stop();
-                statusCallback?.Invoke($"Gagal pada otomasi SAP: {ex.Message}");
+                var deepError = GetFullErrorMessage(ex);
+                statusCallback?.Invoke($"Gagal pada otomasi SAP: {deepError}");
                 return new SapExecutionResult
                 {
                     Success = false,
                     Duration = stopwatch.Elapsed,
-                    Message = $"Error SAP Automation: {ex.Message}"
+                    Message = $"Error SAP Automation: {deepError}"
                 };
             }
+
             finally
             {
                 // Graceful cleanup COM objects
@@ -402,6 +451,25 @@ public class SapGuiAutomationService : ISapAutomationService
             elem?.GetType().InvokeMember("Select", System.Reflection.BindingFlags.InvokeMethod, null, elem, null);
         }
         catch { }
+    }
+
+    private static string GetFullErrorMessage(Exception ex)
+    {
+        var messages = new List<string>();
+        var curr = ex;
+        while (curr != null)
+        {
+            if (!string.IsNullOrWhiteSpace(curr.Message))
+            {
+                messages.Add(curr.Message);
+            }
+            curr = curr.InnerException;
+        }
+
+        // Ambil pesan paling spesifik (InnerException terdalam) jika ada TargetInvocationException
+        return messages.Count > 1 
+            ? string.Join(" -> ", messages) 
+            : (messages.FirstOrDefault() ?? "Terjadi kesalahan COM SAP GUI yang tidak diketahui.");
     }
 
     private static void ReleaseCom(object? comObj)
