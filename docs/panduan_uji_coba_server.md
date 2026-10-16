@@ -43,3 +43,4 @@ Paket ini disiapkan agar dapat langsung dijalankan pada komputer server yang tel
      `%LOCALAPPDATA%\Atlaz\exports\ZFM001_YYYYMMDD_HHMMSS.csv`
    - Sesi SAP di-logout secara bersih (`/nex`).
    - Status eksekusi dan path file CSV hasil unduhan akan tercatat di tab **📜 Riwayat & Log**.
+

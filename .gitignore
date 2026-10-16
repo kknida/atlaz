@@ -11,3 +11,9 @@ temp/
 exports/
 archives/
 *.log
+
+## Release artifacts (upload to GitHub Releases, not committed to repo)
+publish/
+installer/*.exe
+installer/*.zip
+
