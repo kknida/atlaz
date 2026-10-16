@@ -102,8 +102,14 @@ public class SapGuiAutomationService : ISapAutomationService
         string client,
         string username,
         string password,
+        string fmArea,
+        string budgetCategory,
+        string version,
         string fiscalYear,
-        string period,
+        string fromPeriod,
+        string toPeriod,
+        string fundsCenter,
+        string commitmentItem,
         string outputDirectory,
         Action<string>? statusCallback = null,
         CancellationToken ct = default)
@@ -274,17 +280,37 @@ public class SapGuiAutomationService : ISapAutomationService
                 FindAndSetText(session, sessionType, "wnd[0]/tbar[0]/okcd", "/nZFM001");
                 SendVKey(session, sessionType, 0); // Enter
 
-                // 6. Masukkan Parameter Transaksi (Tahun & Periode)
-                statusCallback?.Invoke($"Memasukkan parameter transaksi (Tahun: {fiscalYear}, Periode: {period})...");
-                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/txtP_GJAHR", fiscalYear); // Tahun Anggaran
-                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/txtP_PERIO", period);     // Periode
+                // Handle jika ada popup dialog informasi (misal: 'Username/Funds center anda belum di maintain')
+                Thread.Sleep(1000);
+                HandlePossiblePopups(session, sessionType);
+
+                // 6. Masukkan Parameter Transaksi Sesuai Form 'Report FM for AirNav 2024: Selection'
+                statusCallback?.Invoke($"Memasukkan parameter transaksi (FM Area: {fmArea}, Tahun: {fiscalYear}, Funds Center: {fundsCenter})...");
+                
+                // Selection values
+                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/ctxtP_FIKRS", fmArea);           // Financial Management Area
+                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/ctxtP_FIKRS-LOW", fmArea);
+                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/ctxtP_FONDS", budgetCategory);  // Budget Category (9F)
+                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/txtP_VERSN", version);          // Version (0)
+                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/txtP_GJAHR", fiscalYear);       // Fiscal Year (2026)
+                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/txtP_PERIO", fromPeriod);       // From Period (1)
+                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/txtP_PERIOT", toPeriod);        // To Period (12)
+                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/txtP_PERTO", toPeriod);
+
+                // Selection groups (Funds Center & Commitment Item)
+                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/ctxtS_FICTR-LOW", fundsCenter); // Funds Center (Or value(s))
+                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/ctxtS_FIPEX-LOW", commitmentItem); // Commitment Item jika diisi
                 
                 // 7. Eksekusi Report (F8)
                 statusCallback?.Invoke("Mengeksekusi transaksi (F8)...");
                 SendVKey(session, sessionType, 8); // VKey 8 = F8 (Execute)
 
+                // Cek kemungkinan dialog/popup peringatan setelah F8
+                Thread.Sleep(1500);
+                HandlePossiblePopups(session, sessionType);
+
                 // Tunggu hingga report selesai dirender
-                Thread.Sleep(2000);
+                Thread.Sleep(2500);
 
                 // 8. Ekspor ke File CSV Lokal
                 statusCallback?.Invoke($"Mengunduh laporan ke file CSV: {Path.GetFileName(outputFilePath)}...");

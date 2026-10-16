@@ -131,8 +131,14 @@ public partial class MainViewModel : ObservableObject
             client: SapConfig.Client,
             username: SapConfig.Username,
             password: SapConfig.EncryptedPassword,
+            fmArea: SapConfig.FmArea,
+            budgetCategory: SapConfig.BudgetCategory,
+            version: SapConfig.Version,
             fiscalYear: SapConfig.FiscalYear,
-            period: SapConfig.Period,
+            fromPeriod: SapConfig.FromPeriod,
+            toPeriod: SapConfig.ToPeriod,
+            fundsCenter: SapConfig.FundsCenter,
+            commitmentItem: SapConfig.CommitmentItem,
             outputDirectory: outputDir,
             statusCallback: (msg) =>
             {

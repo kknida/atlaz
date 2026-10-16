@@ -54,7 +54,7 @@ public partial class ScheduleConfig : ObservableObject
 public partial class SapConnectionConfig : ObservableObject
 {
     [ObservableProperty]
-    private string _systemId = "PRD";
+    private string _systemId = "INTERNET PROD - AEP";
 
     [ObservableProperty]
     private string _client = "100";
@@ -69,10 +69,28 @@ public partial class SapConnectionConfig : ObservableObject
     private string _transactionCode = "ZFM001";
 
     [ObservableProperty]
-    private string _fiscalYear = DateTime.Now.Year.ToString();
+    private string _fmArea = "1000";
 
     [ObservableProperty]
-    private string _period = DateTime.Now.Month.ToString("D2");
+    private string _budgetCategory = "9F";
+
+    [ObservableProperty]
+    private string _version = "0";
+
+    [ObservableProperty]
+    private string _fiscalYear = "2026";
+
+    [ObservableProperty]
+    private string _fromPeriod = "1";
+
+    [ObservableProperty]
+    private string _toPeriod = "12";
+
+    [ObservableProperty]
+    private string _fundsCenter = "A022020000";
+
+    [ObservableProperty]
+    private string _commitmentItem = string.Empty;
 }
 
 public partial class WebDarsanaConfig : ObservableObject

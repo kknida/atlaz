@@ -276,8 +276,8 @@
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                    <TextBlock Text="System ID / Description SAP Logon:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
-                                    <TextBox Text="{Binding SapConfig.SystemId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <TextBlock Text="Nama Koneksi / Description di SAP Logon:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
+                                    <TextBox Text="{Binding SapConfig.SystemId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ToolTip="Contoh: INTERNET PROD - AEP"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Margin="8,0,0,0">
                                     <TextBlock Text="Client (Contoh: 100):" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
@@ -305,18 +305,58 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                <StackPanel Grid.Column="0" Margin="0,0,4,0">
                                     <TextBlock Text="Kode Transaksi:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
                                     <TextBox Text="{Binding SapConfig.TransactionCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                                 </StackPanel>
-                                <StackPanel Grid.Column="1" Margin="3,0,3,0">
-                                    <TextBlock Text="Tahun Anggaran:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
+                                <StackPanel Grid.Column="1" Margin="4,0,4,0">
+                                    <TextBlock Text="FM Area:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
+                                    <TextBox Text="{Binding SapConfig.FmArea, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" Margin="4,0,4,0">
+                                    <TextBlock Text="Budget Category:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
+                                    <TextBox Text="{Binding SapConfig.BudgetCategory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="3" Margin="4,0,0,0">
+                                    <TextBlock Text="Version:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
+                                    <TextBox Text="{Binding SapConfig.Version, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                    <TextBlock Text="Fiscal Year (Tahun):" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
                                     <TextBox Text="{Binding SapConfig.FiscalYear, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                                 </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="3,0,3,0">
+                                    <TextBlock Text="From Period:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
+                                    <TextBox Text="{Binding SapConfig.FromPeriod, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                </StackPanel>
                                 <StackPanel Grid.Column="2" Margin="6,0,0,0">
-                                    <TextBlock Text="Periode:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
-                                    <TextBox Text="{Binding SapConfig.Period, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <TextBlock Text="To Period:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
+                                    <TextBox Text="{Binding SapConfig.ToPeriod, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <Grid Margin="0,0,0,14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                    <TextBlock Text="Funds Center (Or value):" FontSize="12" Foreground="#0284C7" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <TextBox Text="{Binding SapConfig.FundsCenter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                    <TextBlock Text="Commitment Item (Opsional):" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
+                                    <TextBox Text="{Binding SapConfig.CommitmentItem, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                                 </StackPanel>
                             </Grid>
                         </StackPanel>
