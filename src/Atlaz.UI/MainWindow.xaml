@@ -153,7 +153,6 @@
 
                             <Button Content="▶  Jalankan Sinkronisasi Sekarang (Manual Run)" 
                                     Command="{Binding RunManualSyncCommand}"
-                                    IsEnabled="{Binding IsRunning, Converter={x:Null}}"
                                     Background="#0284C7" Foreground="#FFFFFF" 
                                     FontSize="14" FontWeight="Bold" 
                                     Padding="18,10" BorderThickness="0" Cursor="Hand" HorizontalAlignment="Left"/>
@@ -181,8 +180,8 @@
                         <StackPanel>
                             <CheckBox Content="Aktifkan Penjadwalan Otomatis" IsChecked="{Binding Schedule.IsEnabled}" FontWeight="SemiBold" Margin="0,0,0,16"/>
 
-                            <TextBlock Text="Waktu Eksekusi Harian:" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                            <TextBox Text="{Binding Schedule.ScheduledTime, Mode=TwoWay}" Width="160" HorizontalAlignment="Left" Padding="8,6" Margin="0,0,0,16"/>
+                            <TextBlock Text="Waktu Eksekusi Harian (HH:mm):" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                            <TextBox Text="{Binding Schedule.ScheduledTimeString, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="160" HorizontalAlignment="Left" Padding="8,6" Margin="0,0,0,16"/>
 
                             <TextBlock Text="Hari Aktif Eksekusi:" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,10"/>
                             <WrapPanel Margin="0,0,0,20">
@@ -229,12 +228,12 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Margin="0,0,8,0">
                                     <TextBlock Text="System ID / Description:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
-                                    <TextBox Text="{Binding SapConfig.SystemId}" Padding="8,6"/>
-                                </StackPanel>
-                                <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                    <TextBox Text="{Binding SapConfig.SystemId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Padding="8,6"/>
+                                 </StackPanel>
+                                 <StackPanel Grid.Column="1" Margin="8,0,0,0">
                                     <TextBlock Text="Client:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
-                                    <TextBox Text="{Binding SapConfig.Client}" Padding="8,6"/>
-                                </StackPanel>
+                                    <TextBox Text="{Binding SapConfig.Client, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Padding="8,6"/>
+                                 </StackPanel>
                             </Grid>
 
                             <Grid Margin="0,0,0,8">
@@ -244,11 +243,11 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Margin="0,0,8,0">
                                     <TextBlock Text="Username SAP:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
-                                    <TextBox Text="{Binding SapConfig.Username}" Padding="8,6"/>
+                                    <TextBox Text="{Binding SapConfig.Username, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Padding="8,6"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Margin="8,0,0,0">
                                     <TextBlock Text="Password SAP:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
-                                    <TextBox Text="{Binding SapConfig.EncryptedPassword}" Padding="8,6"/>
+                                    <TextBox Text="{Binding SapConfig.EncryptedPassword, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Padding="8,6"/>
                                 </StackPanel>
                             </Grid>
 
@@ -260,15 +259,15 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Margin="0,0,6,0">
                                     <TextBlock Text="Kode Transaksi:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
-                                    <TextBox Text="{Binding SapConfig.TransactionCode}" Padding="8,6" IsReadOnly="True"/>
+                                    <TextBox Text="{Binding SapConfig.TransactionCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Padding="8,6"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Margin="3,0,3,0">
                                     <TextBlock Text="Tahun Anggaran:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
-                                    <TextBox Text="{Binding SapConfig.FiscalYear}" Padding="8,6"/>
+                                    <TextBox Text="{Binding SapConfig.FiscalYear, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Padding="8,6"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="2" Margin="6,0,0,0">
                                     <TextBlock Text="Periode:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
-                                    <TextBox Text="{Binding SapConfig.Period}" Padding="8,6"/>
+                                    <TextBox Text="{Binding SapConfig.Period, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Padding="8,6"/>
                                 </StackPanel>
                             </Grid>
                         </StackPanel>
@@ -286,16 +285,16 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Margin="0,0,8,0">
                                     <TextBlock Text="Host Server SFTP:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
-                                    <TextBox Text="{Binding DarsanaConfig.Host}" Padding="8,6"/>
+                                    <TextBox Text="{Binding DarsanaConfig.Host, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Padding="8,6"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Margin="8,0,0,0">
                                     <TextBlock Text="Port:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
-                                    <TextBox Text="{Binding DarsanaConfig.Port}" Padding="8,6"/>
+                                    <TextBox Text="{Binding DarsanaConfig.Port, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Padding="8,6"/>
                                 </StackPanel>
                             </Grid>
 
                             <TextBlock Text="Remote Staging Path (Folder Server):" FontSize="12" Foreground="#64748B" Margin="0,4,0,4"/>
-                            <TextBox Text="{Binding DarsanaConfig.RemoteStagingPath}" Padding="8,6" Margin="0,0,0,16"/>
+                            <TextBox Text="{Binding DarsanaConfig.RemoteStagingPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Padding="8,6" Margin="0,0,0,16"/>
 
                             <Button Content="Simpan Konfigurasi" Command="{Binding SaveSettingsCommand}" Background="#0284C7" Foreground="#FFFFFF" FontWeight="Bold" Padding="14,8" HorizontalAlignment="Left" BorderThickness="0" Cursor="Hand"/>
                         </StackPanel>

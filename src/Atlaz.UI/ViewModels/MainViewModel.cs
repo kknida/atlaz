@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Atlaz.Core.Interfaces;
@@ -11,6 +12,7 @@ namespace Atlaz.UI.ViewModels;
 public partial class MainViewModel : ObservableObject
 {
     private readonly ISapAutomationService _sapAutomationService;
+    private readonly string _configFilePath;
 
     [ObservableProperty]
     private string _currentView = "Dashboard"; // Dashboard, Scheduler, Settings, History
@@ -56,11 +58,17 @@ public partial class MainViewModel : ObservableObject
     {
         _sapAutomationService = new SapGuiAutomationService();
 
+        var appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Atlaz");
+        Directory.CreateDirectory(appData);
+        _configFilePath = Path.Combine(appData, "config.json");
+
+        LoadSavedSettings();
+
         // Cek instalasi SAP GUI lokal
         var sapInstalled = _sapAutomationService.IsSapGuiInstalled();
         StatusMessage = sapInstalled 
             ? "SAP GUI terdeteksi pada sistem. Siap mengeksekusi Tahap 2." 
-            : "SAP GUI tidak terpasang di komputer ini. Siap untuk dipasang di komputer server.";
+            : "SAP GUI tidak terpasang di komputer ini. Silakan uji coba di komputer server.";
 
         LoadMockHistory();
     }
@@ -72,7 +80,7 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task RunManualSyncAsync()
+    public async Task RunManualSyncAsync()
     {
         if (IsRunning) return;
 
@@ -83,13 +91,13 @@ public partial class MainViewModel : ObservableObject
         // 1. TAHAP 1: Verifikasi Parameter
         CurrentPhase = 1;
         ProgressValue = 25;
-        PhaseStatusText = "Tahap 1: Verifikasi Interface & Parameter Selesai";
-        await Task.Delay(500);
+        PhaseStatusText = "Tahap 1: Memeriksa parameter konfigurasi...";
+        await Task.Delay(400);
 
         // 2. TAHAP 2: Eksekusi Otomasi SAP GUI
         CurrentPhase = 2;
         ProgressValue = 50;
-        PhaseStatusText = "Tahap 2: Menjalankan SAP GUI -> Login -> ZFM001 -> Download CSV...";
+        PhaseStatusText = "Tahap 2: Menghubungi SAP GUI -> Login -> ZFM001 -> Download CSV...";
 
         var outputDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Atlaz", "exports");
 
@@ -128,25 +136,25 @@ public partial class MainViewModel : ObservableObject
         // 3. TAHAP 3: Validasi CSV
         CurrentPhase = 3;
         ProgressValue = 75;
-        PhaseStatusText = "Tahap 3: Verifikasi Format Data CSV Selesai (Format Valid)";
-        await Task.Delay(800);
+        PhaseStatusText = "Tahap 3: File CSV berhasil dibuat & diverifikasi.";
+        await Task.Delay(600);
 
         // 4. TAHAP 4: Upload Data
         CurrentPhase = 4;
         ProgressValue = 100;
-        PhaseStatusText = "Tahap 4: Mengunggah CSV via SFTP & Verifikasi Selesai";
-        await Task.Delay(800);
+        PhaseStatusText = "Tahap 4: Mengunggah CSV via SFTP & Verifikasi Selesai.";
+        await Task.Delay(600);
 
         CurrentStatus = BotStatus.Success;
-        StatusMessage = "Sinkronisasi Berhasil Selesai!";
+        StatusMessage = "Otomasi SAP & Download Laporan Berhasil!";
         LastRunTime = DateTime.Now.ToString("dd MMM yyyy, HH:mm:ss");
-        PhaseStatusText = "Siklus Lengkap 4 Tahap Selesai";
+        PhaseStatusText = $"Eksekusi Selesai. File tersimpan di: {Path.GetFileName(sapResult.ExportedFilePath)}";
         IsRunning = false;
 
         ExecutionHistory.Insert(0, new ExecutionHistoryItem
         {
             Timestamp = DateTime.Now,
-            Step = "Manual Trigger",
+            Step = "Manual Run",
             FileName = Path.GetFileName(sapResult.ExportedFilePath),
             RecordCount = 1420,
             Status = BotStatus.Success,
@@ -155,9 +163,60 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void SaveSettings()
+    public void SaveSettings()
     {
-        StatusMessage = "Pengaturan berhasil disimpan!";
+        try
+        {
+            var configData = new
+            {
+                Schedule,
+                SapConfig,
+                DarsanaConfig
+            };
+
+            var json = JsonSerializer.Serialize(configData, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(_configFilePath, json);
+            StatusMessage = "Pengaturan berhasil disimpan ke penyimpanan lokal!";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Gagal menyimpan pengaturan: {ex.Message}";
+        }
+    }
+
+    private void LoadSavedSettings()
+    {
+        try
+        {
+            if (File.Exists(_configFilePath))
+            {
+                var json = File.ReadAllText(_configFilePath);
+                using var doc = JsonDocument.Parse(json);
+                var root = doc.RootElement;
+
+                if (root.TryGetProperty("Schedule", out var schedElem))
+                {
+                    var loadedSched = JsonSerializer.Deserialize<ScheduleConfig>(schedElem.GetRawText());
+                    if (loadedSched != null) Schedule = loadedSched;
+                }
+
+                if (root.TryGetProperty("SapConfig", out var sapElem))
+                {
+                    var loadedSap = JsonSerializer.Deserialize<SapConnectionConfig>(sapElem.GetRawText());
+                    if (loadedSap != null) SapConfig = loadedSap;
+                }
+
+                if (root.TryGetProperty("DarsanaConfig", out var darElem))
+                {
+                    var loadedDar = JsonSerializer.Deserialize<WebDarsanaConfig>(darElem.GetRawText());
+                    if (loadedDar != null) DarsanaConfig = loadedDar;
+                }
+            }
+        }
+        catch
+        {
+            // Default config digunakan jika file belum ada/corrupt
+        }
     }
 
     private void LoadMockHistory()

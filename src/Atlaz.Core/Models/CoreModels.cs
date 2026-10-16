@@ -1,3 +1,5 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+
 namespace Atlaz.Core.Models;
 
 public enum BotStatus
@@ -19,36 +21,77 @@ public class ExecutionHistoryItem
     public string Message { get; set; } = string.Empty;
 }
 
-public class ScheduleConfig
+public partial class ScheduleConfig : ObservableObject
 {
-    public bool IsEnabled { get; set; } = true;
-    public TimeSpan ScheduledTime { get; set; } = new TimeSpan(8, 0, 0); // 08:00
-    public bool RunOnMonday { get; set; } = true;
-    public bool RunOnTuesday { get; set; } = true;
-    public bool RunOnWednesday { get; set; } = true;
-    public bool RunOnThursday { get; set; } = true;
-    public bool RunOnFriday { get; set; } = true;
-    public bool RunOnSaturday { get; set; } = false;
-    public bool RunOnSunday { get; set; } = false;
+    [ObservableProperty]
+    private bool _isEnabled = true;
+
+    [ObservableProperty]
+    private string _scheduledTimeString = "08:00";
+
+    [ObservableProperty]
+    private bool _runOnMonday = true;
+
+    [ObservableProperty]
+    private bool _runOnTuesday = true;
+
+    [ObservableProperty]
+    private bool _runOnWednesday = true;
+
+    [ObservableProperty]
+    private bool _runOnThursday = true;
+
+    [ObservableProperty]
+    private bool _runOnFriday = true;
+
+    [ObservableProperty]
+    private bool _runOnSaturday = false;
+
+    [ObservableProperty]
+    private bool _runOnSunday = false;
 }
 
-public class SapConnectionConfig
+public partial class SapConnectionConfig : ObservableObject
 {
-    public string SystemId { get; set; } = "PRD";
-    public string Client { get; set; } = "100";
-    public string Username { get; set; } = "BOT_USER";
-    public string EncryptedPassword { get; set; } = string.Empty;
-    public string TransactionCode { get; set; } = "ZFM001";
-    public string FiscalYear { get; set; } = DateTime.Now.Year.ToString();
-    public string Period { get; set; } = DateTime.Now.Month.ToString("D2");
+    [ObservableProperty]
+    private string _systemId = "PRD";
+
+    [ObservableProperty]
+    private string _client = "100";
+
+    [ObservableProperty]
+    private string _username = "BOT_USER";
+
+    [ObservableProperty]
+    private string _encryptedPassword = string.Empty;
+
+    [ObservableProperty]
+    private string _transactionCode = "ZFM001";
+
+    [ObservableProperty]
+    private string _fiscalYear = DateTime.Now.Year.ToString();
+
+    [ObservableProperty]
+    private string _period = DateTime.Now.Month.ToString("D2");
 }
 
-public class WebDarsanaConfig
+public partial class WebDarsanaConfig : ObservableObject
 {
-    public string TransferProtocol { get; set; } = "SFTP"; // SFTP / API
-    public string Host { get; set; } = "srv.darsana.id";
-    public int Port { get; set; } = 22;
-    public string Username { get; set; } = "u_darsana";
-    public string EncryptedPasswordOrToken { get; set; } = string.Empty;
-    public string RemoteStagingPath { get; set; } = "/home/u_darsana/public_html/storage/app/import_staging";
+    [ObservableProperty]
+    private string _transferProtocol = "SFTP";
+
+    [ObservableProperty]
+    private string _host = "srv.darsana.id";
+
+    [ObservableProperty]
+    private int _port = 22;
+
+    [ObservableProperty]
+    private string _username = "u_darsana";
+
+    [ObservableProperty]
+    private string _encryptedPasswordOrToken = string.Empty;
+
+    [ObservableProperty]
+    private string _remoteStagingPath = "/home/u_darsana/public_html/storage/app/import_staging";
 }
