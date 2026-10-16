@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:Atlaz.UI.ViewModels"
         mc:Ignorable="d"
-        Title="Atlaz - SAP Automation &amp; Web Darsana Data Sync" 
+        Title="Atlaz" 
         Height="680" Width="1020" 
         WindowStartupLocation="CenterScreen"
         Background="#F4F6F9"
@@ -56,15 +56,14 @@
             <DockPanel LastChildFill="True">
                 <!-- App Title / Logo -->
                 <StackPanel DockPanel.Dock="Top" Margin="20,24,20,30">
-                    <TextBlock Text="ATLAZ BOT" FontSize="22" FontWeight="Bold" Foreground="#38BDF8"/>
-                    <TextBlock Text="SAP to Web Darsana Sync" FontSize="11" Foreground="#94A3B8" Margin="0,4,0,0"/>
+                    <TextBlock Text="ATLAZ" FontSize="24" FontWeight="Bold" Foreground="#38BDF8"/>
                 </StackPanel>
 
                 <!-- Footer Status -->
                 <Border DockPanel.Dock="Bottom" Background="#0F172A" Padding="16,12">
                     <StackPanel>
                         <TextBlock Text="Status Server:" FontSize="11" Foreground="#94A3B8"/>
-                        <TextBlock Text="Hostinger / Web Darsana" FontSize="12" FontWeight="SemiBold" Foreground="#38BDF8"/>
+                        <TextBlock Text="Online" FontSize="12" FontWeight="SemiBold" Foreground="#38BDF8"/>
                     </StackPanel>
                 </Border>
 
@@ -146,7 +145,7 @@
                                 </StackPanel>
                                 <StackPanel HorizontalAlignment="Center">
                                     <TextBlock Text="Tahap 4" FontWeight="Bold" Foreground="#0284C7" HorizontalAlignment="Center"/>
-                                    <TextBlock Text="Sync Web Darsana" FontSize="12" Foreground="#64748B" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Sync Data" FontSize="12" Foreground="#64748B" HorizontalAlignment="Center"/>
                                 </StackPanel>
                             </UniformGrid>
 
@@ -216,7 +215,7 @@
                         </Style>
                     </StackPanel.Style>
 
-                    <TextBlock Text="Konfigurasi SAP &amp; Web Darsana" FontSize="22" FontWeight="Bold" Foreground="#1E293B" Margin="0,0,0,16"/>
+                    <TextBlock Text="Konfigurasi Sistem" FontSize="22" FontWeight="Bold" Foreground="#1E293B" Margin="0,0,0,16"/>
                     
                     <!-- SAP Settings -->
                     <Border Style="{StaticResource CardPanel}">
@@ -255,10 +254,10 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- Web Darsana Settings -->
+                    <!-- Remote Transfer Settings -->
                     <Border Style="{StaticResource CardPanel}">
                         <StackPanel>
-                            <TextBlock Text="Pengaturan Transfer Web Darsana (SFTP Hosting Compliant)" FontSize="16" FontWeight="SemiBold" Foreground="#1E293B" Margin="0,0,0,12"/>
+                            <TextBlock Text="Pengaturan Transfer SFTP" FontSize="16" FontWeight="SemiBold" Foreground="#1E293B" Margin="0,0,0,12"/>
 
                             <Grid Margin="0,0,0,8">
                                 <Grid.ColumnDefinitions>

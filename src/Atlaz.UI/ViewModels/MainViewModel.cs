@@ -86,7 +86,7 @@ public partial class MainViewModel : ObservableObject
 
         CurrentPhase = 4;
         ProgressValue = 100;
-        PhaseStatusText = "Tahap 4: Mengunggah CSV ke Web Darsana via SFTP & Verifikasi...";
+        PhaseStatusText = "Tahap 4: Mengunggah CSV via SFTP & Verifikasi...";
         await Task.Delay(1500);
 
         CurrentStatus = BotStatus.Success;
@@ -102,7 +102,7 @@ public partial class MainViewModel : ObservableObject
             FileName = $"ZFM001_{DateTime.Now:yyyyMMdd_HHmmss}.csv",
             RecordCount = 1420,
             Status = BotStatus.Success,
-            Message = "Data sukses diekspor dari SAP dan diimpor ke Web Darsana"
+            Message = "Data sukses diekspor dan ditransfer ke server"
         });
     }
 
@@ -135,3 +135,4 @@ public partial class MainViewModel : ObservableObject
         });
     }
 }
+
