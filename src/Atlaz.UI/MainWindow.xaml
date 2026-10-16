@@ -247,8 +247,28 @@
                                     <TextBox Text="{Binding SapConfig.Username}" Padding="8,6"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                    <TextBlock Text="Password SAP:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
+                                    <TextBox Text="{Binding SapConfig.EncryptedPassword}" Padding="8,6"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Margin="0,0,6,0">
                                     <TextBlock Text="Kode Transaksi:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
                                     <TextBox Text="{Binding SapConfig.TransactionCode}" Padding="8,6" IsReadOnly="True"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="3,0,3,0">
+                                    <TextBlock Text="Tahun Anggaran:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
+                                    <TextBox Text="{Binding SapConfig.FiscalYear}" Padding="8,6"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" Margin="6,0,0,0">
+                                    <TextBlock Text="Periode:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
+                                    <TextBox Text="{Binding SapConfig.Period}" Padding="8,6"/>
                                 </StackPanel>
                             </Grid>
                         </StackPanel>
