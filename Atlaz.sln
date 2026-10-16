@@ -1,0 +1,41 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{003675EE-7FA9-4670-A1AF-ACC135DDECBD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Atlaz.Core", "src\Atlaz.Core\Atlaz.Core.csproj", "{577D9E63-8F9F-48B6-B81F-3252D4D6CCF1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Atlaz.Infrastructure", "src\Atlaz.Infrastructure\Atlaz.Infrastructure.csproj", "{E72BD982-B855-40E3-9232-E02B1A9AB231}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Atlaz.UI", "src\Atlaz.UI\Atlaz.UI.csproj", "{41197E6D-133A-41C4-B310-7BB581235FA8}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{577D9E63-8F9F-48B6-B81F-3252D4D6CCF1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{577D9E63-8F9F-48B6-B81F-3252D4D6CCF1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{577D9E63-8F9F-48B6-B81F-3252D4D6CCF1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{577D9E63-8F9F-48B6-B81F-3252D4D6CCF1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E72BD982-B855-40E3-9232-E02B1A9AB231}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E72BD982-B855-40E3-9232-E02B1A9AB231}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E72BD982-B855-40E3-9232-E02B1A9AB231}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E72BD982-B855-40E3-9232-E02B1A9AB231}.Release|Any CPU.Build.0 = Release|Any CPU
+		{41197E6D-133A-41C4-B310-7BB581235FA8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{41197E6D-133A-41C4-B310-7BB581235FA8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{41197E6D-133A-41C4-B310-7BB581235FA8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{41197E6D-133A-41C4-B310-7BB581235FA8}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{577D9E63-8F9F-48B6-B81F-3252D4D6CCF1} = {003675EE-7FA9-4670-A1AF-ACC135DDECBD}
+		{E72BD982-B855-40E3-9232-E02B1A9AB231} = {003675EE-7FA9-4670-A1AF-ACC135DDECBD}
+		{41197E6D-133A-41C4-B310-7BB581235FA8} = {003675EE-7FA9-4670-A1AF-ACC135DDECBD}
+	EndGlobalSection
+EndGlobal

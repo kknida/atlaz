@@ -1,0 +1,13 @@
+## Build & Output
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Temporary files
+temp/
+exports/
+archives/
+*.log

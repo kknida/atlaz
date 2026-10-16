@@ -1,0 +1,326 @@
+<Window x:Class="Atlaz.UI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:Atlaz.UI.ViewModels"
+        mc:Ignorable="d"
+        Title="Atlaz - SAP Automation &amp; Web Darsana Data Sync" 
+        Height="680" Width="1020" 
+        WindowStartupLocation="CenterScreen"
+        Background="#F4F6F9"
+        FontFamily="Segoe UI">
+
+    <Window.DataContext>
+        <vm:MainViewModel />
+    </Window.DataContext>
+
+    <Window.Resources>
+        <!-- Nav Button Style -->
+        <Style x:Key="NavBtnStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#D1D5DB"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="16,12"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#374151"/>
+                    <Setter Property="Foreground" Value="#FFFFFF"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Card Style -->
+        <Style x:Key="CardPanel" TargetType="Border">
+            <Setter Property="Background" Value="#FFFFFF"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="20"/>
+            <Setter Property="Margin" Value="0,0,0,16"/>
+            <Setter Property="BorderBrush" Value="#E5E7EB"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="240"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- SIDEBAR NAVIGATION -->
+        <Border Grid.Column="0" Background="#1E293B">
+            <DockPanel LastChildFill="True">
+                <!-- App Title / Logo -->
+                <StackPanel DockPanel.Dock="Top" Margin="20,24,20,30">
+                    <TextBlock Text="ATLAZ BOT" FontSize="22" FontWeight="Bold" Foreground="#38BDF8"/>
+                    <TextBlock Text="SAP to Web Darsana Sync" FontSize="11" Foreground="#94A3B8" Margin="0,4,0,0"/>
+                </StackPanel>
+
+                <!-- Footer Status -->
+                <Border DockPanel.Dock="Bottom" Background="#0F172A" Padding="16,12">
+                    <StackPanel>
+                        <TextBlock Text="Status Server:" FontSize="11" Foreground="#94A3B8"/>
+                        <TextBlock Text="Hostinger / Web Darsana" FontSize="12" FontWeight="SemiBold" Foreground="#38BDF8"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Nav Menu Items -->
+                <StackPanel Margin="0,10,0,0">
+                    <Button Content="📊  Dashboard" Style="{StaticResource NavBtnStyle}" 
+                            Command="{Binding SwitchViewCommand}" CommandParameter="Dashboard"/>
+                    <Button Content="⏰  Pengaturan Jadwal" Style="{StaticResource NavBtnStyle}" 
+                            Command="{Binding SwitchViewCommand}" CommandParameter="Scheduler"/>
+                    <Button Content="⚙️  Konfigurasi Sistem" Style="{StaticResource NavBtnStyle}" 
+                            Command="{Binding SwitchViewCommand}" CommandParameter="Settings"/>
+                    <Button Content="📜  Riwayat &amp; Log" Style="{StaticResource NavBtnStyle}" 
+                            Command="{Binding SwitchViewCommand}" CommandParameter="History"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- MAIN CONTENT AREA -->
+        <Grid Grid.Column="1" Margin="24">
+            
+            <!-- 1. DASHBOARD VIEW -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding CurrentView}" Value="Dashboard">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+
+                    <TextBlock Text="Ringkasan Status Bot" FontSize="22" FontWeight="Bold" Foreground="#1E293B" Margin="0,0,0,16"/>
+
+                    <!-- Metric Cards -->
+                    <UniformGrid Columns="3" Margin="0,0,0,16">
+                        <Border Style="{StaticResource CardPanel}" Margin="0,0,8,0">
+                            <StackPanel>
+                                <TextBlock Text="STATUS BOT" FontSize="11" FontWeight="Bold" Foreground="#64748B"/>
+                                <TextBlock Text="{Binding StatusMessage}" FontSize="15" FontWeight="SemiBold" Foreground="#0284C7" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource CardPanel}" Margin="4,0,4,0">
+                            <StackPanel>
+                                <TextBlock Text="JADWAL BERIKUTNYA" FontSize="11" FontWeight="Bold" Foreground="#64748B"/>
+                                <TextBlock Text="{Binding NextScheduleTime}" FontSize="15" FontWeight="SemiBold" Foreground="#1E293B" Margin="0,8,0,0"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource CardPanel}" Margin="8,0,0,0">
+                            <StackPanel>
+                                <TextBlock Text="EKSEKUSI TERAKHIR" FontSize="11" FontWeight="Bold" Foreground="#64748B"/>
+                                <TextBlock Text="{Binding LastRunTime}" FontSize="15" FontWeight="SemiBold" Foreground="#1E293B" Margin="0,8,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+
+                    <!-- 4-Phase Step Progress Card -->
+                    <Border Style="{StaticResource CardPanel}">
+                        <StackPanel>
+                            <TextBlock Text="Alur Proses 4 Tahap" FontSize="16" FontWeight="SemiBold" Foreground="#1E293B"/>
+                            <TextBlock Text="{Binding PhaseStatusText}" FontSize="13" Foreground="#475569" Margin="0,4,0,14"/>
+
+                            <ProgressBar Value="{Binding ProgressValue}" Height="12" Maximum="100" Margin="0,0,0,16" Background="#E2E8F0" Foreground="#0284C7"/>
+
+                            <UniformGrid Columns="4">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <TextBlock Text="Tahap 1" FontWeight="Bold" Foreground="#0284C7" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Interface WPF" FontSize="12" Foreground="#64748B" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                                <StackPanel HorizontalAlignment="Center">
+                                    <TextBlock Text="Tahap 2" FontWeight="Bold" Foreground="#0284C7" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Otomasi SAP" FontSize="12" Foreground="#64748B" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                                <StackPanel HorizontalAlignment="Center">
+                                    <TextBlock Text="Tahap 3" FontWeight="Bold" Foreground="#0284C7" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Validasi CSV" FontSize="12" Foreground="#64748B" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                                <StackPanel HorizontalAlignment="Center">
+                                    <TextBlock Text="Tahap 4" FontWeight="Bold" Foreground="#0284C7" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Sync Web Darsana" FontSize="12" Foreground="#64748B" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </UniformGrid>
+
+                            <Separator Margin="0,20,0,20" Background="#E2E8F0"/>
+
+                            <Button Content="▶  Jalankan Sinkronisasi Sekarang (Manual Run)" 
+                                    Command="{Binding RunManualSyncCommand}"
+                                    IsEnabled="{Binding IsRunning, Converter={x:Null}}"
+                                    Background="#0284C7" Foreground="#FFFFFF" 
+                                    FontSize="14" FontWeight="Bold" 
+                                    Padding="18,10" BorderThickness="0" Cursor="Hand" HorizontalAlignment="Left"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- 2. SCHEDULER VIEW -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding CurrentView}" Value="Scheduler">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+
+                    <TextBlock Text="Pengaturan Jadwal Otomasi" FontSize="22" FontWeight="Bold" Foreground="#1E293B" Margin="0,0,0,16"/>
+                    <Border Style="{StaticResource CardPanel}">
+                        <StackPanel>
+                            <CheckBox Content="Aktifkan Penjadwalan Otomatis" IsChecked="{Binding Schedule.IsEnabled}" FontWeight="SemiBold" Margin="0,0,0,16"/>
+
+                            <TextBlock Text="Waktu Eksekusi Harian:" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                            <TextBox Text="{Binding Schedule.ScheduledTime, Mode=TwoWay}" Width="160" HorizontalAlignment="Left" Padding="8,6" Margin="0,0,0,16"/>
+
+                            <TextBlock Text="Hari Aktif Eksekusi:" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                            <WrapPanel Margin="0,0,0,20">
+                                <CheckBox Content="Senin" IsChecked="{Binding Schedule.RunOnMonday}" Margin="0,0,16,8"/>
+                                <CheckBox Content="Selasa" IsChecked="{Binding Schedule.RunOnTuesday}" Margin="0,0,16,8"/>
+                                <CheckBox Content="Rabu" IsChecked="{Binding Schedule.RunOnWednesday}" Margin="0,0,16,8"/>
+                                <CheckBox Content="Kamis" IsChecked="{Binding Schedule.RunOnThursday}" Margin="0,0,16,8"/>
+                                <CheckBox Content="Jumat" IsChecked="{Binding Schedule.RunOnFriday}" Margin="0,0,16,8"/>
+                                <CheckBox Content="Sabtu" IsChecked="{Binding Schedule.RunOnSaturday}" Margin="0,0,16,8"/>
+                                <CheckBox Content="Minggu" IsChecked="{Binding Schedule.RunOnSunday}" Margin="0,0,16,8"/>
+                            </WrapPanel>
+
+                            <Button Content="Simpan Jadwal" Command="{Binding SaveSettingsCommand}" Background="#059669" Foreground="#FFFFFF" FontWeight="Bold" Padding="14,8" HorizontalAlignment="Left" BorderThickness="0" Cursor="Hand"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- 3. SETTINGS VIEW -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding CurrentView}" Value="Settings">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+
+                    <TextBlock Text="Konfigurasi SAP &amp; Web Darsana" FontSize="22" FontWeight="Bold" Foreground="#1E293B" Margin="0,0,0,16"/>
+                    
+                    <!-- SAP Settings -->
+                    <Border Style="{StaticResource CardPanel}">
+                        <StackPanel>
+                            <TextBlock Text="Parameter SAP GUI (ZFM001)" FontSize="16" FontWeight="SemiBold" Foreground="#1E293B" Margin="0,0,0,12"/>
+                            
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                    <TextBlock Text="System ID / Description:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
+                                    <TextBox Text="{Binding SapConfig.SystemId}" Padding="8,6"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                    <TextBlock Text="Client:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
+                                    <TextBox Text="{Binding SapConfig.Client}" Padding="8,6"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                    <TextBlock Text="Username SAP:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
+                                    <TextBox Text="{Binding SapConfig.Username}" Padding="8,6"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                    <TextBlock Text="Kode Transaksi:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
+                                    <TextBox Text="{Binding SapConfig.TransactionCode}" Padding="8,6" IsReadOnly="True"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Web Darsana Settings -->
+                    <Border Style="{StaticResource CardPanel}">
+                        <StackPanel>
+                            <TextBlock Text="Pengaturan Transfer Web Darsana (SFTP Hosting Compliant)" FontSize="16" FontWeight="SemiBold" Foreground="#1E293B" Margin="0,0,0,12"/>
+
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="2*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                    <TextBlock Text="Host Server SFTP:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
+                                    <TextBox Text="{Binding DarsanaConfig.Host}" Padding="8,6"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                    <TextBlock Text="Port:" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
+                                    <TextBox Text="{Binding DarsanaConfig.Port}" Padding="8,6"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <TextBlock Text="Remote Staging Path (Folder Server):" FontSize="12" Foreground="#64748B" Margin="0,4,0,4"/>
+                            <TextBox Text="{Binding DarsanaConfig.RemoteStagingPath}" Padding="8,6" Margin="0,0,0,16"/>
+
+                            <Button Content="Simpan Konfigurasi" Command="{Binding SaveSettingsCommand}" Background="#0284C7" Foreground="#FFFFFF" FontWeight="Bold" Padding="14,8" HorizontalAlignment="Left" BorderThickness="0" Cursor="Hand"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- 4. HISTORY VIEW -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding CurrentView}" Value="History">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+
+                    <TextBlock Text="Riwayat Eksekusi &amp; Log" FontSize="22" FontWeight="Bold" Foreground="#1E293B" Margin="0,0,0,16"/>
+                    <Border Style="{StaticResource CardPanel}">
+                        <DataGrid ItemsSource="{Binding ExecutionHistory}" 
+                                  AutoGenerateColumns="False" 
+                                  CanUserAddRows="False" 
+                                  HeadersVisibility="Column" 
+                                  GridLinesVisibility="Horizontal"
+                                  Background="White"
+                                  BorderThickness="0"
+                                  RowHeight="32">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Waktu" Binding="{Binding Timestamp, StringFormat=\{0:dd/MM/yyyy HH:mm\}}" Width="140"/>
+                                <DataGridTextColumn Header="Tahap / Tipe" Binding="{Binding Step}" Width="120"/>
+                                <DataGridTextColumn Header="File CSV" Binding="{Binding FileName}" Width="180"/>
+                                <DataGridTextColumn Header="Baris Data" Binding="{Binding RecordCount}" Width="90"/>
+                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="90"/>
+                                <DataGridTextColumn Header="Keterangan" Binding="{Binding Message}" Width="*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+        </Grid>
+    </Grid>
+</Window>
