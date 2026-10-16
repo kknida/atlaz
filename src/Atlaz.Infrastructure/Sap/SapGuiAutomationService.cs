@@ -280,45 +280,86 @@ public class SapGuiAutomationService : ISapAutomationService
                 statusCallback?.Invoke("Membuka transaksi /nZFM001...");
                 FindAndSetText(session, sessionType, "wnd[0]/tbar[0]/okcd", "/nZFM001");
                 SendVKey(session, sessionType, 0); // Enter
-
-                // Handle jika ada popup dialog informasi (misal: 'Username/Funds center anda belum di maintain')
                 Thread.Sleep(1000);
-                HandlePossiblePopups(session, sessionType);
 
-                // 6. Masukkan Parameter Transaksi Sesuai Form 'Report FM for AirNav 2024: Selection'
-                statusCallback?.Invoke($"Memasukkan parameter transaksi (FM Area: {fmArea}, Tahun: {fiscalYear}, Funds Center: {fundsCenter})...");
-                
-                // Selection values
-                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/ctxtP_FIKRS", fmArea);           // Financial Management Area
-                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/ctxtP_FIKRS-LOW", fmArea);
-                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/ctxtP_FONDS", budgetCategory);  // Budget Category (9F)
-                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/txtP_VERSN", version);          // Version (0)
-                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/txtP_GJAHR", fiscalYear);       // Fiscal Year (2026)
-                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/txtP_PERIO", fromPeriod);       // From Period (1)
-                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/txtP_PERIOT", toPeriod);        // To Period (12)
-                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/txtP_PERTO", toPeriod);
+                // 6. Layar Seleksi Pass 1 (Sesuai VBScript)
+                statusCallback?.Invoke($"Mengisi parameter seleksi ZFM001 (FM Area: {fmArea}, Funds Center: {fundsCenterFrom} sd {fundsCenterTo})...");
+                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/ctxt$4FFIKRS", fmArea);
+                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/ctxt_4FFICTR-LOW", fundsCenterFrom);
+                if (!string.IsNullOrWhiteSpace(fundsCenterTo))
+                {
+                    TrySetTextIfExists(session, sessionType, "wnd[0]/usr/ctxt_4FFICTR-HIGH", fundsCenterTo);
+                }
+                else
+                {
+                    TrySetTextIfExists(session, sessionType, "wnd[0]/usr/ctxt_4FFICTR-HIGH", fundsCenterFrom);
+                }
 
-                // Selection groups (Funds Center & Commitment Item)
-                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/ctxtS_FICTR-LOW", fundsCenterFrom); // Funds Center (From)
-                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/ctxtS_FICTR-HIGH", fundsCenterTo);   // Funds Center (To)
-                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/ctxtS_FIPEX-LOW", commitmentItem);  // Commitment Item jika diisi
-                
-                // 7. Eksekusi Report (F8)
-                statusCallback?.Invoke("Mengeksekusi transaksi (F8)...");
-                SendVKey(session, sessionType, 8); // VKey 8 = F8 (Execute)
+                // Fallback ID alternatif jika varian layar memakai form standar
+                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/ctxtP_FIKRS", fmArea);
+                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/ctxtS_FICTR-LOW", fundsCenterFrom);
+                if (!string.IsNullOrWhiteSpace(fundsCenterTo))
+                {
+                    TrySetTextIfExists(session, sessionType, "wnd[0]/usr/ctxtS_FICTR-HIGH", fundsCenterTo);
+                }
 
-                // Cek kemungkinan dialog/popup peringatan setelah F8
+                // Execute Pass 1 (F8)
+                SendVKey(session, sessionType, 8); // F8
                 Thread.Sleep(1500);
-                HandlePossiblePopups(session, sessionType);
 
-                // Tunggu hingga report selesai dirender
-                Thread.Sleep(2500);
+                // Layar Seleksi Pass 2 (Sesuai VBScript: isi ulang jika diminta konfirmasi)
+                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/ctxt$4FFIKRS", fmArea);
+                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/ctxt_4FFICTR-LOW", fundsCenterFrom);
+                if (!string.IsNullOrWhiteSpace(fundsCenterTo))
+                {
+                    TrySetTextIfExists(session, sessionType, "wnd[0]/usr/ctxt_4FFICTR-HIGH", fundsCenterTo);
+                }
 
-                // 8. Ekspor ke File CSV Lokal
-                statusCallback?.Invoke($"Mengunduh laporan ke file CSV: {Path.GetFileName(outputFilePath)}...");
-                ExportReportToCsv(session, sessionType, outputFilePath);
+                // 7. Atur Tipe File (Spreadsheet) via btn[7] -> OK -> Execute (F8) (Sesuai VBScript langkah 4)
+                statusCallback?.Invoke("Mengatur format ekspor Spreadsheet Report Writer (btn[7])...");
+                TryPressButton(session, sessionType, "wnd[0]/tbar[1]/btn[7]");
+                Thread.Sleep(1000);
 
-                // 9. Logout dari SAP (Clean Logout)
+                // Tekan OK pada dialog tipe dokumen
+                TryPressButton(session, sessionType, "wnd[1]/tbar[0]/btn[0]");
+                Thread.Sleep(500);
+
+                // Execute F8
+                SendVKey(session, sessionType, 8);
+                Thread.Sleep(2000);
+
+                // 8. Ekspor ke Local File via btn[14] dan LGRWO-OUT_FILE (Sesuai VBScript langkah 5 & 6)
+                statusCallback?.Invoke($"Mengekspor file CSV ke: {Path.GetFileName(outputFilePath)}...");
+                TryPressButton(session, sessionType, "wnd[0]/tbar[1]/btn[14]");
+                Thread.Sleep(1000);
+
+                // Isi langsung lokasi file CSV lengkap
+                TrySetTextIfExists(session, sessionType, "wnd[1]/usr/ctxtLGRWO-OUT_FILE", outputFilePath);
+                TryPressButton(session, sessionType, "wnd[1]/tbar[0]/btn[0]"); // Simpan / Generate
+                Thread.Sleep(1000);
+
+                // 9. Konfirmasi Popup SPOP bila muncul (Sesuai VBScript langkah 7)
+                TryPressButton(session, sessionType, "wnd[2]/usr/btnSPOP-VAROPTION2");
+                TryPressButton(session, sessionType, "wnd[1]/usr/btnSPOP-VAROPTION1");
+                Thread.Sleep(1500);
+
+                // Verifikasi file benar-benar tertulis di disk
+                for (int i = 0; i < 8; i++)
+                {
+                    if (File.Exists(outputFilePath) && new FileInfo(outputFilePath).Length > 0)
+                    {
+                        break;
+                    }
+                    Thread.Sleep(500);
+                }
+
+                if (!File.Exists(outputFilePath) || new FileInfo(outputFilePath).Length == 0)
+                {
+                    // Fallback jika tombol toolbar di server Anda memakai ALV list menu
+                    ExportReportToCsv(session, sessionType, outputFilePath);
+                }
+
+                // 10. Logout dari SAP (Clean Logout)
                 statusCallback?.Invoke("Menutup sesi transaksi dan logout dari SAP (/nex)...");
                 FindAndSetText(session, sessionType, "wnd[0]/tbar[0]/okcd", "/nex");
                 SendVKey(session, sessionType, 0);
@@ -329,8 +370,9 @@ public class SapGuiAutomationService : ISapAutomationService
                     Success = true,
                     ExportedFilePath = outputFilePath,
                     Duration = stopwatch.Elapsed,
-                    Message = "Otomasi SAP GUI berhasil: login, transaksi ZFM001, unduh CSV, dan logout tuntas."
+                    Message = "Otomasi SAP GUI berhasil: login, transaksi ZFM001 Report Writer, ekspor CSV, dan logout tuntas."
                 };
+
             }
             catch (Exception ex)
             {
@@ -377,6 +419,20 @@ public class SapGuiAutomationService : ISapAutomationService
             // Element id mungkin berbeda tergantung konfigurasi varian ZFM001
         }
     }
+
+    private static void TryPressButton(object session, Type sessionType, string buttonId)
+    {
+        try
+        {
+            var btn = sessionType.InvokeMember("FindById", System.Reflection.BindingFlags.InvokeMethod, null, session, new object[] { buttonId });
+            if (btn != null)
+            {
+                btn.GetType().InvokeMember("Press", System.Reflection.BindingFlags.InvokeMethod, null, btn, null);
+            }
+        }
+        catch { }
+    }
+
 
     private static void SendVKey(object session, Type sessionType, int vkey)
     {
