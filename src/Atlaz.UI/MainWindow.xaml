@@ -349,12 +349,17 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                    <TextBlock Text="Funds Center (Or value):" FontSize="12" Foreground="#0284C7" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                                    <TextBox Text="{Binding SapConfig.FundsCenter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                <StackPanel Grid.Column="0" Margin="0,0,4,0">
+                                    <TextBlock Text="Funds Center (From):" FontSize="12" Foreground="#0284C7" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <TextBox Text="{Binding SapConfig.FundsCenterFrom, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ToolTip="Contoh: A022020000"/>
                                 </StackPanel>
-                                <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                <StackPanel Grid.Column="1" Margin="4,0,4,0">
+                                    <TextBlock Text="Funds Center (To):" FontSize="12" Foreground="#0284C7" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <TextBox Text="{Binding SapConfig.FundsCenterTo, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ToolTip="Kosongkan jika hanya 1 nilai"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" Margin="4,0,0,0">
                                     <TextBlock Text="Commitment Item (Opsional):" FontSize="12" Foreground="#64748B" Margin="0,0,0,4"/>
                                     <TextBox Text="{Binding SapConfig.CommitmentItem, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                                 </StackPanel>

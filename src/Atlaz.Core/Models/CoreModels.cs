@@ -87,7 +87,10 @@ public partial class SapConnectionConfig : ObservableObject
     private string _toPeriod = "12";
 
     [ObservableProperty]
-    private string _fundsCenter = "A022020000";
+    private string _fundsCenterFrom = "A022020000";
+
+    [ObservableProperty]
+    private string _fundsCenterTo = string.Empty;
 
     [ObservableProperty]
     private string _commitmentItem = string.Empty;

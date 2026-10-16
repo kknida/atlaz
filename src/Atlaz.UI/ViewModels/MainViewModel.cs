@@ -137,7 +137,8 @@ public partial class MainViewModel : ObservableObject
             fiscalYear: SapConfig.FiscalYear,
             fromPeriod: SapConfig.FromPeriod,
             toPeriod: SapConfig.ToPeriod,
-            fundsCenter: SapConfig.FundsCenter,
+            fundsCenterFrom: SapConfig.FundsCenterFrom,
+            fundsCenterTo: SapConfig.FundsCenterTo,
             commitmentItem: SapConfig.CommitmentItem,
             outputDirectory: outputDir,
             statusCallback: (msg) =>

@@ -108,7 +108,8 @@ public class SapGuiAutomationService : ISapAutomationService
         string fiscalYear,
         string fromPeriod,
         string toPeriod,
-        string fundsCenter,
+        string fundsCenterFrom,
+        string fundsCenterTo,
         string commitmentItem,
         string outputDirectory,
         Action<string>? statusCallback = null,
@@ -298,8 +299,9 @@ public class SapGuiAutomationService : ISapAutomationService
                 TrySetTextIfExists(session, sessionType, "wnd[0]/usr/txtP_PERTO", toPeriod);
 
                 // Selection groups (Funds Center & Commitment Item)
-                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/ctxtS_FICTR-LOW", fundsCenter); // Funds Center (Or value(s))
-                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/ctxtS_FIPEX-LOW", commitmentItem); // Commitment Item jika diisi
+                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/ctxtS_FICTR-LOW", fundsCenterFrom); // Funds Center (From)
+                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/ctxtS_FICTR-HIGH", fundsCenterTo);   // Funds Center (To)
+                TrySetTextIfExists(session, sessionType, "wnd[0]/usr/ctxtS_FIPEX-LOW", commitmentItem);  // Commitment Item jika diisi
                 
                 // 7. Eksekusi Report (F8)
                 statusCallback?.Invoke("Mengeksekusi transaksi (F8)...");
