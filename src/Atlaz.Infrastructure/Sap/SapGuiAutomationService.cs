@@ -359,7 +359,11 @@ public class SapGuiAutomationService : ISapAutomationService
                     ExportReportToCsv(session, sessionType, outputFilePath);
                 }
 
-                // 10. Logout dari SAP (Clean Logout)
+                // 10. Tutup file CSV / Excel yang terbuka otomatis oleh SAP GUI
+                statusCallback?.Invoke("Menutup jendela viewer/Excel file CSV hasil ekspor...");
+                CloseExportedCsvViewer(outputFilePath);
+
+                // 11. Logout dari SAP (Clean Logout)
                 statusCallback?.Invoke("Menutup sesi transaksi dan logout dari SAP (/nex)...");
                 FindAndSetText(session, sessionType, "wnd[0]/tbar[0]/okcd", "/nex");
                 SendVKey(session, sessionType, 0);
@@ -647,6 +651,54 @@ public class SapGuiAutomationService : ISapAutomationService
             : (messages.FirstOrDefault() ?? "Terjadi kesalahan COM SAP GUI yang tidak diketahui.");
     }
 
+    private static void CloseExportedCsvViewer(string filePath)
+    {
+        try
+        {
+            var fileNameWithoutExt = Path.GetFileNameWithoutExtension(filePath);
+            var fullFileName = Path.GetFileName(filePath);
+
+            // 1. Cek proses Excel yang membuka file hasil unduhan
+            var excelProcesses = Process.GetProcessesByName("EXCEL");
+            foreach (var proc in excelProcesses)
+            {
+                try
+                {
+                    if (proc.MainWindowTitle.Contains(fileNameWithoutExt, StringComparison.OrdinalIgnoreCase) ||
+                        proc.MainWindowTitle.Contains(fullFileName, StringComparison.OrdinalIgnoreCase) ||
+                        string.IsNullOrWhiteSpace(proc.MainWindowTitle))
+                    {
+                        proc.CloseMainWindow();
+                        if (!proc.WaitForExit(1000))
+                        {
+                            proc.Kill();
+                        }
+                    }
+                }
+                catch { }
+            }
+
+            // 2. Cek jika terbuka di Notepad atau viewer teks lain
+            var textProcesses = Process.GetProcessesByName("notepad");
+            foreach (var proc in textProcesses)
+            {
+                try
+                {
+                    if (proc.MainWindowTitle.Contains(fileNameWithoutExt, StringComparison.OrdinalIgnoreCase))
+                    {
+                        proc.CloseMainWindow();
+                        if (!proc.WaitForExit(1000))
+                        {
+                            proc.Kill();
+                        }
+                    }
+                }
+                catch { }
+            }
+        }
+        catch { }
+    }
+
     private static void ReleaseCom(object? comObj)
     {
         if (comObj != null && Marshal.IsComObject(comObj))
@@ -659,4 +711,5 @@ public class SapGuiAutomationService : ISapAutomationService
         }
     }
 }
+
 
