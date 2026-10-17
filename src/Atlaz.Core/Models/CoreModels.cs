@@ -21,10 +21,24 @@ public class ExecutionHistoryItem
     public string Message { get; set; } = string.Empty;
 }
 
+public enum ScheduleIntervalType
+{
+    Hourly, // Setiap Jam / Hari tertentu
+    EveryNMinutes // Setiap Berapa Menit (Uji Coba / Cepat)
+}
+
 public partial class ScheduleConfig : ObservableObject
 {
     [ObservableProperty]
     private bool _isEnabled = true;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsHourly))]
+    [NotifyPropertyChangedFor(nameof(IsEveryNMinutes))]
+    private ScheduleIntervalType _intervalType = ScheduleIntervalType.Hourly;
+
+    [ObservableProperty]
+    private int _intervalMinutes = 5; // Default 5 menit untuk pengujian cepat
 
     [ObservableProperty]
     private string _scheduledTimeString = "08:00";
@@ -49,6 +63,9 @@ public partial class ScheduleConfig : ObservableObject
 
     [ObservableProperty]
     private bool _runOnSunday = false;
+
+    public bool IsHourly => IntervalType == ScheduleIntervalType.Hourly;
+    public bool IsEveryNMinutes => IntervalType == ScheduleIntervalType.EveryNMinutes;
 }
 
 public partial class SapConnectionConfig : ObservableObject

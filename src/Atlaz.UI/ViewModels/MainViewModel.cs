@@ -54,6 +54,9 @@ public partial class MainViewModel : ObservableObject
     // History
     public ObservableCollection<ExecutionHistoryItem> ExecutionHistory { get; } = new();
 
+    private readonly System.Windows.Threading.DispatcherTimer _schedulerTimer;
+    private DateTime _lastTriggerDate = DateTime.MinValue;
+
     public MainViewModel()
     {
         _sapAutomationService = new SapGuiAutomationService();
@@ -71,12 +74,31 @@ public partial class MainViewModel : ObservableObject
             : "SAP GUI tidak terpasang di komputer ini. Silakan uji coba di komputer server.";
 
         LoadMockHistory();
+
+        // Inisialisasi background scheduler timer (cek setiap 10 detik)
+        _schedulerTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(10)
+        };
+        _schedulerTimer.Tick += OnSchedulerTick;
+        _schedulerTimer.Start();
+        UpdateNextScheduleTimeDisplay();
     }
 
     [RelayCommand]
     private void SwitchView(string viewName)
     {
         CurrentView = viewName;
+    }
+
+    [RelayCommand]
+    private void SetScheduleIntervalType(string typeStr)
+    {
+        if (Enum.TryParse<ScheduleIntervalType>(typeStr, out var parsedType))
+        {
+            Schedule.IntervalType = parsedType;
+            UpdateNextScheduleTimeDisplay();
+        }
     }
 
     [RelayCommand]
@@ -209,10 +231,92 @@ public partial class MainViewModel : ObservableObject
             var json = JsonSerializer.Serialize(configData, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(_configFilePath, json);
             StatusMessage = "Pengaturan berhasil disimpan ke penyimpanan lokal!";
+            UpdateNextScheduleTimeDisplay();
         }
         catch (Exception ex)
         {
             StatusMessage = $"Gagal menyimpan pengaturan: {ex.Message}";
+        }
+    }
+
+    private void OnSchedulerTick(object? sender, EventArgs e)
+    {
+        if (!Schedule.IsEnabled || IsRunning) return;
+
+        var now = DateTime.Now;
+        if (ShouldRunNow(now))
+        {
+            _lastTriggerDate = now;
+            _ = RunManualSyncAsync();
+        }
+
+        UpdateNextScheduleTimeDisplay();
+    }
+
+    private bool ShouldRunNow(DateTime now)
+    {
+        if (Schedule.IntervalType == ScheduleIntervalType.EveryNMinutes)
+        {
+            var minutes = Math.Max(1, Schedule.IntervalMinutes);
+            if (_lastTriggerDate == DateTime.MinValue)
+            {
+                // Pertama kali aktif, jadwalkan trigger interval pertama
+                _lastTriggerDate = now;
+                return false;
+            }
+
+            return (now - _lastTriggerDate).TotalMinutes >= minutes;
+        }
+        else
+        {
+            // Mode Hourly / Jadwal Jam Harian
+            if (!IsDayActive(now.DayOfWeek)) return false;
+
+            if (TimeSpan.TryParse(Schedule.ScheduledTimeString, out var targetTime))
+            {
+                var isSameTime = now.Hour == targetTime.Hours && now.Minute == targetTime.Minutes;
+                var alreadyRanToday = _lastTriggerDate.Date == now.Date && 
+                                      _lastTriggerDate.Hour == now.Hour && 
+                                      _lastTriggerDate.Minute == now.Minute;
+
+                return isSameTime && !alreadyRanToday;
+            }
+
+            return false;
+        }
+    }
+
+    private bool IsDayActive(DayOfWeek day)
+    {
+        return day switch
+        {
+            DayOfWeek.Monday => Schedule.RunOnMonday,
+            DayOfWeek.Tuesday => Schedule.RunOnTuesday,
+            DayOfWeek.Wednesday => Schedule.RunOnWednesday,
+            DayOfWeek.Thursday => Schedule.RunOnThursday,
+            DayOfWeek.Friday => Schedule.RunOnFriday,
+            DayOfWeek.Saturday => Schedule.RunOnSaturday,
+            DayOfWeek.Sunday => Schedule.RunOnSunday,
+            _ => false
+        };
+    }
+
+    private void UpdateNextScheduleTimeDisplay()
+    {
+        if (!Schedule.IsEnabled)
+        {
+            NextScheduleTime = "Jadwal Dinonaktifkan";
+            return;
+        }
+
+        if (Schedule.IntervalType == ScheduleIntervalType.EveryNMinutes)
+        {
+            var next = (_lastTriggerDate == DateTime.MinValue ? DateTime.Now : _lastTriggerDate).AddMinutes(Math.Max(1, Schedule.IntervalMinutes));
+            NextScheduleTime = $"Tiap {Schedule.IntervalMinutes} mnt (~{next:HH:mm:ss} WIB)";
+        }
+        else
+        {
+            NextScheduleTime = $"Pukul {Schedule.ScheduledTimeString} WIB (Hari Kerja)";
         }
     }
 

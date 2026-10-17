@@ -224,20 +224,73 @@
                                       IsChecked="{Binding Schedule.IsEnabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
                                       FontWeight="SemiBold" FontSize="14" Margin="0,0,0,18"/>
 
-                            <TextBlock Text="Waktu Eksekusi Harian (Format HH:mm):" FontSize="13" FontWeight="SemiBold" Foreground="#475569" Margin="0,0,0,6"/>
-                            <TextBox Text="{Binding Schedule.ScheduledTimeString, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
-                                     Width="180" HorizontalAlignment="Left" Margin="0,0,0,18"/>
+                            <!-- Pilihan Mode Jadwal -->
+                            <TextBlock Text="Mode Penjadwalan Eksekusi:" FontSize="13" FontWeight="SemiBold" Foreground="#475569" Margin="0,0,0,8"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,18">
+                                <RadioButton Content="📅  Jadwal Tiap Jam / Hari Tertentu" 
+                                             IsChecked="{Binding Schedule.IsHourly, Mode=OneWay}" 
+                                             Command="{Binding SetScheduleIntervalTypeCommand}" 
+                                             CommandParameter="Hourly"
+                                             FontSize="13" FontWeight="SemiBold" Foreground="#1E293B" Margin="0,0,24,0" Cursor="Hand"/>
+                                <RadioButton Content="⚡  Update Tiap Berapa Menit (Uji Coba Cepat)" 
+                                             IsChecked="{Binding Schedule.IsEveryNMinutes, Mode=OneWay}" 
+                                             Command="{Binding SetScheduleIntervalTypeCommand}" 
+                                             CommandParameter="EveryNMinutes"
+                                             FontSize="13" FontWeight="SemiBold" Foreground="#0284C7" Cursor="Hand"/>
+                            </StackPanel>
 
-                            <TextBlock Text="Pilihan Hari Eksekusi:" FontSize="13" FontWeight="SemiBold" Foreground="#475569" Margin="0,0,0,10"/>
-                            <WrapPanel Margin="0,0,0,24">
-                                <CheckBox Content="Senin" IsChecked="{Binding Schedule.RunOnMonday, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,18,10"/>
-                                <CheckBox Content="Selasa" IsChecked="{Binding Schedule.RunOnTuesday, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,18,10"/>
-                                <CheckBox Content="Rabu" IsChecked="{Binding Schedule.RunOnWednesday, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,18,10"/>
-                                <CheckBox Content="Kamis" IsChecked="{Binding Schedule.RunOnThursday, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,18,10"/>
-                                <CheckBox Content="Jumat" IsChecked="{Binding Schedule.RunOnFriday, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,18,10"/>
-                                <CheckBox Content="Sabtu" IsChecked="{Binding Schedule.RunOnSaturday, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,18,10"/>
-                                <CheckBox Content="Minggu" IsChecked="{Binding Schedule.RunOnSunday, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,18,10"/>
-                            </WrapPanel>
+                            <!-- Sub-Panel 1: Mode Interval Tiap N Menit (Untuk Uji Coba Cepat) -->
+                            <Border Background="#F0F9FF" BorderBrush="#BAE6FD" BorderThickness="1" CornerRadius="6" Padding="16" Margin="0,0,0,18">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Schedule.IsEveryNMinutes}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <StackPanel>
+                                    <TextBlock Text="Interval Pengulangan Eksekusi (Menit):" FontSize="13" FontWeight="SemiBold" Foreground="#0369A1" Margin="0,0,0,6"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBox Text="{Binding Schedule.IntervalMinutes, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                                                 Width="100" HorizontalAlignment="Left"/>
+                                        <TextBlock Text="Menit (Contoh: 1, 2, 5, 10, atau 30 menit)" FontSize="12" Foreground="#64748B" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                    </StackPanel>
+                                    <TextBlock Text="* Bot akan menjalankan proses sinkronisasi secara berulang sesuai jumlah menit yang Anda masukkan." 
+                                               FontSize="11" Foreground="#0284C7" Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Sub-Panel 2: Mode Tiap Jam / Harian dengan Pilihan Hari -->
+                            <StackPanel>
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Schedule.IsHourly}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+
+                                <TextBlock Text="Waktu Eksekusi Harian (Format HH:mm):" FontSize="13" FontWeight="SemiBold" Foreground="#475569" Margin="0,0,0,6"/>
+                                <TextBox Text="{Binding Schedule.ScheduledTimeString, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                                         Width="180" HorizontalAlignment="Left" Margin="0,0,0,18"/>
+
+                                <TextBlock Text="Pilihan Hari Eksekusi:" FontSize="13" FontWeight="SemiBold" Foreground="#475569" Margin="0,0,0,10"/>
+                                <WrapPanel Margin="0,0,0,24">
+                                    <CheckBox Content="Senin" IsChecked="{Binding Schedule.RunOnMonday, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,18,10"/>
+                                    <CheckBox Content="Selasa" IsChecked="{Binding Schedule.RunOnTuesday, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,18,10"/>
+                                    <CheckBox Content="Rabu" IsChecked="{Binding Schedule.RunOnWednesday, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,18,10"/>
+                                    <CheckBox Content="Kamis" IsChecked="{Binding Schedule.RunOnThursday, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,18,10"/>
+                                    <CheckBox Content="Jumat" IsChecked="{Binding Schedule.RunOnFriday, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,18,10"/>
+                                    <CheckBox Content="Sabtu" IsChecked="{Binding Schedule.RunOnSaturday, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,18,10"/>
+                                    <CheckBox Content="Minggu" IsChecked="{Binding Schedule.RunOnSunday, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,18,10"/>
+                                </WrapPanel>
+                            </StackPanel>
 
                             <Button Content="💾  Simpan Jadwal" 
                                     Command="{Binding SaveSettingsCommand}" 
@@ -245,6 +298,7 @@
                                     FontWeight="Bold" FontSize="13" 
                                     Padding="18,10" HorizontalAlignment="Left" BorderThickness="0" Cursor="Hand"/>
                         </StackPanel>
+
                     </Border>
                 </StackPanel>
             </ScrollViewer>
