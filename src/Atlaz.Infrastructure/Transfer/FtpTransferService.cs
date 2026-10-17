@@ -30,12 +30,15 @@ public class FtpTransferService : ITransferService
             try
             {
                 client = CreateFtpClient(host, username, password, port);
-                client.Connect();
+                
+                // Gunakan AutoConnect agar otomatis mendeteksi TLS/SSL dan enkripsi cPanel
+                var profile = client.AutoConnect();
 
                 if (client.IsConnected)
                 {
                     var workingDir = client.GetWorkingDirectory();
-                    return (true, $"Koneksi FTP BERHASIL ke {host}:{port} sebagai '{username}'! (Working Dir: {workingDir})");
+                    var profileName = profile != null ? profile.ToString() : "Standard FTP";
+                    return (true, $"Koneksi FTP BERHASIL ke {host}:{port} sebagai '{username}'! ({profileName} | Dir: {workingDir})");
                 }
 
                 return (false, "Gagal terhubung ke server FTP cPanel.");
@@ -46,13 +49,16 @@ public class FtpTransferService : ITransferService
             }
             catch (Exception ex)
             {
-                return (false, $"Gagal koneksi FTP: {ex.Message}");
+                return (false, $"Gagal koneksi FTP: {GetFullErrorMessage(ex)}");
             }
             finally
             {
-                if (client != null && client.IsConnected)
+                if (client != null)
                 {
-                    try { client.Disconnect(); } catch { }
+                    if (client.IsConnected)
+                    {
+                        try { client.Disconnect(); } catch { }
+                    }
                     client.Dispose();
                 }
             }
@@ -89,7 +95,7 @@ public class FtpTransferService : ITransferService
                 remotePath = "storage/app/sap/incoming";
             }
 
-            const int maxRetries = 3;
+            const int maxRetries = 2;
             for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
                 FtpClient? client = null;
@@ -97,7 +103,9 @@ public class FtpTransferService : ITransferService
                 {
                     statusCallback?.Invoke($"Menghubungkan ke FTP {host}:{port} (Percobaan {attempt}/{maxRetries})...");
                     client = CreateFtpClient(host, username, password, port);
-                    client.Connect();
+
+                    // AutoConnect untuk auto-negotiate protokol & SSL
+                    client.AutoConnect();
 
                     if (!client.IsConnected)
                     {
@@ -115,36 +123,46 @@ public class FtpTransferService : ITransferService
 
                     var remoteFilePath = cleanRemotePath.TrimEnd('/') + "/" + validationResult.FileName;
 
-                    statusCallback?.Invoke($"Mengunggah {validationResult.FileName} via FTP Port {port}...");
-                    var status = client.UploadFile(validationResult.FilePath, remoteFilePath, FtpRemoteExists.Overwrite, createRemoteDir: true);
+                    statusCallback?.Invoke($"Mengunggah {validationResult.FileName} ({validationResult.FileSizeBytes:N0} bytes) via FTP...");
 
-                    if (status == FtpStatus.Success)
+                    // Gunakan FileStream dengan ReadWrite share agar tidak konflik dengan Excel yang baru ditutup
+                    using (var fs = new FileStream(validationResult.FilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                     {
-                        result.ArchivedFilePath = ArchiveLocalCsvFile(validationResult.FilePath);
-                        result.Success = true;
-                        result.RowsImportedOnServer = validationResult.RowsImported;
-                        result.Message = $"File CSV ({validationResult.RowsImported} baris) berhasil diunggah via FTP ke: {remoteFilePath}";
+                        var status = client.UploadStream(fs, remoteFilePath, FtpRemoteExists.Overwrite, createRemoteDir: true);
+                        if (status == FtpStatus.Success)
+                        {
+                            result.ArchivedFilePath = ArchiveLocalCsvFile(validationResult.FilePath);
+                            result.Success = true;
+                            result.RowsImportedOnServer = validationResult.RowsImported;
+                            result.Message = $"File CSV ({validationResult.RowsImported} baris) berhasil diunggah via FTP ke: {remoteFilePath}";
 
-                        statusCallback?.Invoke("Unggah FTP sukses & file diarsipkan.");
-                        return result;
-                    }
-                    else
-                    {
-                        result.Success = false;
-                        result.Message = $"Status unggah FTP: {status}";
-                        return result;
+                            statusCallback?.Invoke("Unggah FTP sukses & file diarsipkan.");
+                            return result;
+                        }
+                        else
+                        {
+                            result.Success = false;
+                            result.Message = $"Status unggah FTP: {status}";
+                            return result;
+                        }
                     }
                 }
                 catch (FtpException fex) when (fex.Message.Contains("421") && attempt < maxRetries)
                 {
-                    statusCallback?.Invoke("Server FTP penuh (421). Menunggu 4 detik untuk giliran sesi...");
+                    statusCallback?.Invoke("Server FTP merespons 421. Menunggu 4 detik untuk giliran sesi...");
                     await Task.Delay(4000);
                 }
                 catch (Exception ex)
                 {
-                    result.Success = false;
-                    result.Message = $"Gagal unggah via FTP: {ex.Message}";
-                    return result;
+                    var detailedMsg = GetFullErrorMessage(ex);
+                    if (attempt == maxRetries)
+                    {
+                        result.Success = false;
+                        result.Message = $"Gagal unggah via FTP: {detailedMsg}";
+                        return result;
+                    }
+                    statusCallback?.Invoke($"Percobaan {attempt} gagal ({detailedMsg}). Mencoba ulang...");
+                    await Task.Delay(2000);
                 }
                 finally
                 {
@@ -160,7 +178,7 @@ public class FtpTransferService : ITransferService
             }
 
             result.Success = false;
-            result.Message = "Gagal unggah via FTP: Batas sesi koneksi server cPanel penuh (Error 421). Buka cPanel -> FTP Connections untuk memutus koneksi idle.";
+            result.Message = "Gagal unggah via FTP setelah beberapa percobaan.";
             return result;
         });
     }
@@ -169,11 +187,25 @@ public class FtpTransferService : ITransferService
     {
         var client = new FtpClient(host, username, password, port);
         client.Config.ConnectTimeout = 15000;
-        client.Config.ReadTimeout = 15000;
+        client.Config.ReadTimeout = 20000;
         client.Config.DataConnectionType = FtpDataConnectionType.AutoPassive;
         client.Config.SocketKeepAlive = false;
         client.Config.DisconnectWithQuit = true;
+        // Izinkan semua sertifikat SSL/TLS jika cPanel menggunakan self-signed cert
+        client.Config.ValidateAnyCertificate = true;
         return client;
+    }
+
+    private static string GetFullErrorMessage(Exception ex)
+    {
+        var msg = ex.Message;
+        var inner = ex.InnerException;
+        while (inner != null)
+        {
+            msg += " -> " + inner.Message;
+            inner = inner.InnerException;
+        }
+        return msg;
     }
 
     private static string ArchiveLocalCsvFile(string sourceFilePath)
