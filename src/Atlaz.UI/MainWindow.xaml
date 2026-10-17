@@ -424,44 +424,106 @@
                     <!-- Remote Transfer Settings -->
                     <Border Style="{StaticResource CardPanel}">
                         <StackPanel>
-                            <TextBlock Text="Pengaturan Sinkronisasi ke Web Darsana (Anti-WAF Compliant)" FontSize="16" FontWeight="SemiBold" Foreground="#0F172A" Margin="0,0,0,6"/>
-                            <TextBlock Text="Mengirim hasil olahan CSV ke API Web Darsana dengan kompresi GZip + Base64 JSON + HMAC-SHA256 (tanpa sintaks SQL mentah agar 100% bebas blokir WAF Imunify360)." FontSize="12" Foreground="#64748B" TextWrapping="Wrap" Margin="0,0,0,14"/>
+                            <TextBlock Text="Pengaturan Sinkronisasi Data ke Server Web Darsana" FontSize="16" FontWeight="SemiBold" Foreground="#0F172A" Margin="0,0,0,6"/>
+                            <TextBlock Text="Pilih jalur transfer. Jalur SFTP (Port 22 SSH) adalah solusi utama yang kebal blokir Imunify360 WAF karena tidak melalui layer web HTTP." FontSize="12" Foreground="#64748B" TextWrapping="Wrap" Margin="0,0,0,14"/>
 
-                            <TextBlock Text="Protokol Pengiriman Data:" FontSize="12" FontWeight="SemiBold" Foreground="#475569" Margin="0,0,0,6"/>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
-                                <RadioButton Content="🛡️  Anti-WAF Payload (GZip + Base64 JSON + Fallback CSV)" 
-                                             IsChecked="True"
+                            <TextBlock Text="Pilihan Jalur Pengiriman Data:" FontSize="12" FontWeight="SemiBold" Foreground="#475569" Margin="0,0,0,6"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                                <RadioButton Content="🚀  SFTP cPanel Port 22 (Bebas Imunify360 WAF)" 
+                                             IsChecked="{Binding DarsanaConfig.IsSftp, Mode=OneWay}"
+                                             Command="{Binding SetTransferProtocolCommand}" 
+                                             CommandParameter="SFTP"
+                                             FontSize="13" FontWeight="Bold" Foreground="#0284C7" Margin="0,0,24,0" Cursor="Hand"/>
+                                <RadioButton Content="🌐  REST API Web (/api/sap/import)" 
+                                             IsChecked="{Binding DarsanaConfig.IsApi, Mode=OneWay}"
                                              Command="{Binding SetTransferProtocolCommand}" 
                                              CommandParameter="API_GZIP"
-                                             FontSize="12.5" FontWeight="SemiBold" Foreground="#0284C7" Margin="0,0,20,0" Cursor="Hand"/>
-                                <RadioButton Content="📄  Standard CSV Multipart (/api/sap/import)" 
-                                             Command="{Binding SetTransferProtocolCommand}" 
-                                             CommandParameter="API_MULTIPART"
-                                             FontSize="12.5" FontWeight="SemiBold" Foreground="#334155" Cursor="Hand"/>
+                                             FontSize="13" FontWeight="SemiBold" Foreground="#64748B" Cursor="Hand"/>
                             </StackPanel>
 
-                            <Grid Margin="0,0,0,10">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                    <TextBlock Text="URL Web Darsana (DASHBOARD_URL):" FontSize="12" FontWeight="SemiBold" Foreground="#0369A1" Margin="0,0,0,4"/>
-                                    <TextBox Text="{Binding DarsanaConfig.DashboardUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ToolTip="Contoh: https://darsana.airnavsub.id"/>
-                                </StackPanel>
-                                <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                                    <TextBlock Text="API Bearer Token (BOT_TOKEN di .env Darsana):" FontSize="12" FontWeight="SemiBold" Foreground="#0369A1" Margin="0,0,0,4"/>
-                                    <TextBox Text="{Binding DarsanaConfig.ApiToken, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ToolTip="Token rahasia sesuai SAP_IMPORT_TOKEN / BOT_TOKEN di Web Darsana"/>
-                                </StackPanel>
-                            </Grid>
+                            <!-- Sub-Panel: Pengaturan SFTP cPanel (Aktif Saat SFTP Dipilih) -->
+                            <StackPanel Margin="0,0,0,6">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding DarsanaConfig.IsSftp}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
 
-                            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="2*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                        <TextBlock Text="Host Server cPanel / SFTP:" FontSize="12" FontWeight="SemiBold" Foreground="#0369A1" Margin="0,0,0,4"/>
+                                        <TextBox Text="{Binding DarsanaConfig.Host, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ToolTip="Contoh: darsana.airnavsub.id atau IP Server cPanel"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                        <TextBlock Text="Port SFTP (SSH):" FontSize="12" FontWeight="SemiBold" Foreground="#0369A1" Margin="0,0,0,4"/>
+                                        <TextBox Text="{Binding DarsanaConfig.Port, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ToolTip="Port standar SSH adalah 22"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                        <TextBlock Text="Username cPanel / SFTP:" FontSize="12" FontWeight="SemiBold" Foreground="#0369A1" Margin="0,0,0,4"/>
+                                        <TextBox Text="{Binding DarsanaConfig.Username, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ToolTip="Username akun cPanel atau FTP Anda"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                        <TextBlock Text="Password cPanel / SFTP:" FontSize="12" FontWeight="SemiBold" Foreground="#0369A1" Margin="0,0,0,4"/>
+                                        <TextBox Text="{Binding DarsanaConfig.EncryptedPasswordOrToken, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ToolTip="Password akun cPanel atau FTP Anda"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <TextBlock Text="Remote Staging Path (Folder Tujuan di Server):" FontSize="12" FontWeight="SemiBold" Foreground="#0369A1" Margin="0,0,0,4"/>
+                                <TextBox Text="{Binding DarsanaConfig.RemoteStagingPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ToolTip="Contoh: storage/app/sap/incoming"/>
+                            </StackPanel>
+
+                            <!-- Sub-Panel: Pengaturan REST API (Aktif Saat API Dipilih) -->
+                            <StackPanel Margin="0,0,0,6">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding DarsanaConfig.IsApi}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                        <TextBlock Text="URL Web Darsana (DASHBOARD_URL):" FontSize="12" FontWeight="SemiBold" Foreground="#0369A1" Margin="0,0,0,4"/>
+                                        <TextBox Text="{Binding DarsanaConfig.DashboardUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ToolTip="Contoh: https://darsana.airnavsub.id"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                        <TextBlock Text="API Bearer Token (BOT_TOKEN):" FontSize="12" FontWeight="SemiBold" Foreground="#0369A1" Margin="0,0,0,4"/>
+                                        <TextBox Text="{Binding DarsanaConfig.ApiToken, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
                                 <Button Content="💾  Simpan Konfigurasi" 
                                         Command="{Binding SaveSettingsCommand}" 
                                         Background="#0284C7" Foreground="#FFFFFF" 
                                         FontWeight="Bold" FontSize="13" 
                                         Padding="18,10" Margin="0,0,12,0" BorderThickness="0" Cursor="Hand"/>
-                                <Button Content="🌐  Tes Koneksi Web Darsana" 
+                                <Button Content="🧪  Tes Koneksi (SFTP / API)" 
                                         Command="{Binding TestDarsanaConnectionCommand}" 
                                         Background="#0F766E" Foreground="#FFFFFF" 
                                         FontWeight="SemiBold" FontSize="13" 

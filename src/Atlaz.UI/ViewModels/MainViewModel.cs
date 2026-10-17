@@ -15,7 +15,8 @@ public partial class MainViewModel : ObservableObject
 {
     private readonly ISapAutomationService _sapAutomationService;
     private readonly ICsvValidationService _csvValidationService;
-    private readonly ITransferService _transferService;
+    private readonly ITransferService _darsanaApiService;
+    private readonly ITransferService _sftpTransferService;
     private readonly string _configFilePath;
 
     [ObservableProperty]
@@ -37,7 +38,7 @@ public partial class MainViewModel : ObservableObject
     private int _currentPhase = 4; // Seluruh 4 Tahap Aktif
 
     [ObservableProperty]
-    private string _phaseStatusText = "Pipeline 4-Tahap Siap (SAP GUI -> Validasi CSV -> Upload Anti-WAF Darsana)";
+    private string _phaseStatusText = "Pipeline 4-Tahap Siap (SAP GUI -> Validasi CSV -> Upload SFTP cPanel / API)";
 
     [ObservableProperty]
     private double _progressValue = 0.0;
@@ -65,7 +66,8 @@ public partial class MainViewModel : ObservableObject
     {
         _sapAutomationService = new SapGuiAutomationService();
         _csvValidationService = new CsvFileValidationService();
-        _transferService = new DarsanaTransferService();
+        _darsanaApiService = new DarsanaTransferService();
+        _sftpTransferService = new SftpTransferService();
 
         var appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Atlaz");
         Directory.CreateDirectory(appData);
@@ -144,15 +146,17 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public async Task TestDarsanaConnectionAsync()
     {
-        StatusMessage = "Menguji koneksi & token ke Web Darsana...";
-        var (success, msg) = await _transferService.TestConnectionAsync(DarsanaConfig);
+        bool isSftp = DarsanaConfig.IsSftp;
+        StatusMessage = isSftp ? "Menguji koneksi SFTP ke server cPanel..." : "Menguji koneksi API ke Web Darsana...";
+        var service = isSftp ? _sftpTransferService : _darsanaApiService;
+        var (success, msg) = await service.TestConnectionAsync(DarsanaConfig);
         CurrentStatus = success ? BotStatus.Success : BotStatus.Warning;
         StatusMessage = msg;
 
         ExecutionHistory.Insert(0, new ExecutionHistoryItem
         {
             Timestamp = DateTime.Now,
-            Step = "Tes Koneksi Web Darsana",
+            Step = isSftp ? "Tes Koneksi SFTP" : "Tes Koneksi API",
             FileName = "-",
             RecordCount = 0,
             Status = success ? BotStatus.Success : BotStatus.Error,
@@ -259,39 +263,64 @@ public partial class MainViewModel : ObservableObject
         }
 
         // =========================================================================
-        // TAHAP 4: Upload Data ke Web Darsana (Anti-WAF GZip+Base64 / Multipart)
+        // TAHAP 4: Upload Data ke Web Darsana (SFTP cPanel Bebas WAF / API)
         // =========================================================================
         CurrentPhase = 4;
         ProgressValue = 90;
-        PhaseStatusText = "Tahap 4: Mengirim data tervalidasi ke Web Darsana...";
 
-        // Jika token belum diisi, beri tahu bahwa Tahap 1-3 sukses dan minta token untuk Tahap 4
-        var activeToken = !string.IsNullOrWhiteSpace(DarsanaConfig.ApiToken)
-            ? DarsanaConfig.ApiToken.Trim()
-            : DarsanaConfig.EncryptedPasswordOrToken.Trim();
-
-        if (string.IsNullOrWhiteSpace(activeToken))
+        ITransferService transferService;
+        if (DarsanaConfig.IsSftp)
         {
-            ProgressValue = 100;
-            CurrentStatus = BotStatus.Warning;
-            LastRunTime = DateTime.Now.ToString("dd MMM yyyy, HH:mm:ss");
-            StatusMessage = $"Tahap 1-3 Sukses ({validationResult.RowsImported} baris valid). Isi BOT_TOKEN di menu Pengaturan untuk mengaktifkan Upload Tahap 4 ke Web Darsana.";
-            PhaseStatusText = $"CSV Valid ({validationResult.RowsImported} baris, SHA-256: {validationResult.Sha256Checksum[..10]}...). Menunggu konfigurasi Token Web Darsana.";
-            IsRunning = false;
+            PhaseStatusText = "Tahap 4: Mengunggah file CSV via SFTP cPanel (Port 22 - Bebas Imunify360)...";
+            transferService = _sftpTransferService;
 
-            ExecutionHistory.Insert(0, new ExecutionHistoryItem
+            var host = DarsanaConfig.Host?.Trim();
+            var user = DarsanaConfig.Username?.Trim();
+            var pass = DarsanaConfig.EncryptedPasswordOrToken?.Trim();
+
+            if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(user) || string.IsNullOrWhiteSpace(pass))
             {
-                Timestamp = DateTime.Now,
-                Step = "Tahap 3: CSV Tervalidasi",
-                FileName = validationResult.FileName,
-                RecordCount = validationResult.RowsImported,
-                Status = BotStatus.Warning,
-                Message = $"{validationResult.Message} (Upload dilewati: BOT_TOKEN belum diisi)"
-            });
-            return;
+                ProgressValue = 100;
+                CurrentStatus = BotStatus.Warning;
+                LastRunTime = DateTime.Now.ToString("dd MMM yyyy, HH:mm:ss");
+                StatusMessage = $"Tahap 1-3 Sukses ({validationResult.RowsImported} baris). Buka menu Konfigurasi Sistem dan isi Host, Username, & Password cPanel SFTP untuk mengunggah.";
+                PhaseStatusText = $"CSV Valid ({validationResult.RowsImported} baris). Menunggu kelengkapan akun SFTP cPanel.";
+                IsRunning = false;
+
+                ExecutionHistory.Insert(0, new ExecutionHistoryItem
+                {
+                    Timestamp = DateTime.Now,
+                    Step = "Tahap 3: CSV Tervalidasi",
+                    FileName = validationResult.FileName,
+                    RecordCount = validationResult.RowsImported,
+                    Status = BotStatus.Warning,
+                    Message = $"{validationResult.Message} (Upload dilewati: Kredensial SFTP cPanel belum lengkap)"
+                });
+                return;
+            }
+        }
+        else
+        {
+            PhaseStatusText = "Tahap 4: Mengirim data tervalidasi via API Web Darsana...";
+            transferService = _darsanaApiService;
+
+            var activeToken = !string.IsNullOrWhiteSpace(DarsanaConfig.ApiToken)
+                ? DarsanaConfig.ApiToken.Trim()
+                : DarsanaConfig.EncryptedPasswordOrToken.Trim();
+
+            if (string.IsNullOrWhiteSpace(activeToken))
+            {
+                ProgressValue = 100;
+                CurrentStatus = BotStatus.Warning;
+                LastRunTime = DateTime.Now.ToString("dd MMM yyyy, HH:mm:ss");
+                StatusMessage = $"Tahap 1-3 Sukses ({validationResult.RowsImported} baris). Isi BOT_TOKEN di menu Pengaturan untuk mengaktifkan Upload API.";
+                PhaseStatusText = $"CSV Valid ({validationResult.RowsImported} baris). Menunggu BOT_TOKEN Web Darsana.";
+                IsRunning = false;
+                return;
+            }
         }
 
-        var transferResult = await _transferService.UploadToWebDarsanaAsync(
+        var transferResult = await transferService.UploadToWebDarsanaAsync(
             validationResult,
             DarsanaConfig,
             statusCallback: (msg) =>

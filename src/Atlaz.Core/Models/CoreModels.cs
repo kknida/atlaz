@@ -117,16 +117,12 @@ public partial class SapConnectionConfig : ObservableObject
 public partial class WebDarsanaConfig : ObservableObject
 {
     /// <summary>
-    /// Pilihan protokol: "API_GZIP" (Payload Terkompresi Base64 Anti-WAF), "API_MULTIPART" (CSV Multipart ke /api/sap/import), atau "SFTP".
+    /// Pilihan protokol: "SFTP" (Default: Kebal Imunify360 WAF), "API_GZIP", atau "API_MULTIPART".
     /// </summary>
     [ObservableProperty]
-    private string _transferProtocol = "API_GZIP";
-
-    [ObservableProperty]
-    private string _dashboardUrl = "https://darsana.airnavsub.id";
-
-    [ObservableProperty]
-    private string _apiToken = string.Empty;
+    [NotifyPropertyChangedFor(nameof(IsSftp))]
+    [NotifyPropertyChangedFor(nameof(IsApi))]
+    private string _transferProtocol = "SFTP";
 
     [ObservableProperty]
     private string _host = "darsana.airnavsub.id";
@@ -135,13 +131,22 @@ public partial class WebDarsanaConfig : ObservableObject
     private int _port = 22;
 
     [ObservableProperty]
-    private string _username = "u_darsana";
+    private string _username = "";
 
     [ObservableProperty]
     private string _encryptedPasswordOrToken = string.Empty;
 
     [ObservableProperty]
-    private string _remoteStagingPath = "/home/u_darsana/public_html/storage/app/sap/incoming";
+    private string _remoteStagingPath = "storage/app/sap/incoming";
+
+    [ObservableProperty]
+    private string _dashboardUrl = "https://darsana.airnavsub.id";
+
+    [ObservableProperty]
+    private string _apiToken = string.Empty;
+
+    public bool IsSftp => TransferProtocol == "SFTP";
+    public bool IsApi => TransferProtocol != "SFTP";
 }
 
 /// <summary>
