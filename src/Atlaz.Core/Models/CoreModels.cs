@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace Atlaz.Core.Models;
@@ -107,7 +108,7 @@ public partial class SapConnectionConfig : ObservableObject
     private string _fundsCenterFrom = "A022020000";
 
     [ObservableProperty]
-    private string _fundsCenterTo = string.Empty;
+    private string _fundsCenterTo = "A022020005";
 
     [ObservableProperty]
     private string _commitmentItem = string.Empty;
@@ -115,11 +116,20 @@ public partial class SapConnectionConfig : ObservableObject
 
 public partial class WebDarsanaConfig : ObservableObject
 {
+    /// <summary>
+    /// Pilihan protokol: "API_GZIP" (Payload Terkompresi Base64 Anti-WAF), "API_MULTIPART" (CSV Multipart ke /api/sap/import), atau "SFTP".
+    /// </summary>
     [ObservableProperty]
-    private string _transferProtocol = "SFTP";
+    private string _transferProtocol = "API_GZIP";
 
     [ObservableProperty]
-    private string _host = "srv.darsana.id";
+    private string _dashboardUrl = "https://darsana.airnavsub.id";
+
+    [ObservableProperty]
+    private string _apiToken = string.Empty;
+
+    [ObservableProperty]
+    private string _host = "darsana.airnavsub.id";
 
     [ObservableProperty]
     private int _port = 22;
@@ -131,5 +141,70 @@ public partial class WebDarsanaConfig : ObservableObject
     private string _encryptedPasswordOrToken = string.Empty;
 
     [ObservableProperty]
-    private string _remoteStagingPath = "/home/u_darsana/public_html/storage/app/import_staging";
+    private string _remoteStagingPath = "/home/u_darsana/public_html/storage/app/sap/incoming";
+}
+
+/// <summary>
+/// Representasi 1 baris tabel budget_realisasi di database Web Darsana.
+/// </summary>
+public class BudgetRealisasiRecord
+{
+    [JsonPropertyName("report_date")]
+    public string ReportDate { get; set; } = string.Empty;
+
+    [JsonPropertyName("branch_code")]
+    public string? BranchCode { get; set; }
+
+    [JsonPropertyName("item_code")]
+    public string? ItemCode { get; set; }
+
+    [JsonPropertyName("level")]
+    public string Level { get; set; } = "item"; // "item", "cabang", atau "total"
+
+    [JsonPropertyName("branch_name")]
+    public string? BranchName { get; set; }
+
+    [JsonPropertyName("item_name")]
+    public string? ItemName { get; set; }
+
+    [JsonPropertyName("rkap")]
+    public long Rkap { get; set; }
+
+    [JsonPropertyName("release_budget")]
+    public long ReleaseBudget { get; set; }
+
+    [JsonPropertyName("commitment")]
+    public long Commitment { get; set; }
+
+    [JsonPropertyName("total_consume")]
+    public long TotalConsume { get; set; }
+
+    [JsonPropertyName("available_budget")]
+    public long AvailableBudget { get; set; }
+}
+
+public class CsvValidationResult
+{
+    public bool IsValid { get; set; }
+    public string Message { get; set; } = string.Empty;
+    public string FilePath { get; set; } = string.Empty;
+    public string FileName { get; set; } = string.Empty;
+    public string ReportDate { get; set; } = string.Empty;
+    public long FileSizeBytes { get; set; }
+    public string Sha256Checksum { get; set; } = string.Empty;
+    public string DetectedDelimiter { get; set; } = ",";
+    public int RowsImported { get; set; }
+    public int BranchesCount { get; set; }
+    public int ItemsCount { get; set; }
+    public int SkippedCount { get; set; }
+    public List<BudgetRealisasiRecord> Records { get; set; } = new();
+}
+
+public class TransferResult
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = string.Empty;
+    public int RowsImportedOnServer { get; set; }
+    public string ArchivedFilePath { get; set; } = string.Empty;
+    public string ProtocolUsed { get; set; } = string.Empty;
 }

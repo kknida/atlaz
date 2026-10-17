@@ -435,3 +435,13 @@ Urutan pemanggilan method/property objek `session` SAP GUI Scripting tidak berga
 - Setiap perubahan kode dikompilasi menjadi paket mandiri (*self-contained* `win-x64`) dan dipublikasikan ke GitHub Release:
   - **Repository:** `https://github.com/kknida/atlaz`
   - **Direct Download Portable ZIP:** `https://github.com/kknida/atlaz/releases/download/v1.0.0/Atlaz_Server_Portable_v1.0.zip`
+
+### 9.3 Kendala: Hasil Ekspor CSV Tidak Terbaca Utuh / Berbeda dari Manual
+- **Penyebab:** Transaksi `ZFM001` menggunakan modul Report Writer (`SAPLGRWOS`), sehingga ekspor tidak bisa menggunakan perintah standar `/n%PC` melainkan harus memilih tipe output Spreadsheet (`tbar[1]/btn[7]`) sebelum mengeksekusi laporan, lalu menekan tombol Export (`tbar[1]/btn[14]`) dan mengisi `ctxtLGRWO-OUT_FILE` dengan ekstensi `.csv`.
+- **Solusi:** Telah diimplementasikan secara penuh pada `SapGuiAutomationService.cs` mengacu pada skrip `export_sap.vbs`.
+
+### 9.4 Rilis & Distribusi Portable
+- Setiap perubahan kode dikompilasi menjadi paket mandiri (*self-contained* `win-x64`) dan dipublikasikan ke GitHub Release:
+  - **Repository:** `https://github.com/kknida/atlaz`
+  - **Direct Download Portable ZIP:** `https://github.com/kknida/atlaz/releases/download/v1.0.0/Atlaz_Server_Portable_v1.0.zip`
+

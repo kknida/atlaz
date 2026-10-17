@@ -6,12 +6,16 @@ using CommunityToolkit.Mvvm.Input;
 using Atlaz.Core.Interfaces;
 using Atlaz.Core.Models;
 using Atlaz.Infrastructure.Sap;
+using Atlaz.Infrastructure.Transfer;
+using Atlaz.Infrastructure.Validation;
 
 namespace Atlaz.UI.ViewModels;
 
 public partial class MainViewModel : ObservableObject
 {
     private readonly ISapAutomationService _sapAutomationService;
+    private readonly ICsvValidationService _csvValidationService;
+    private readonly ITransferService _transferService;
     private readonly string _configFilePath;
 
     [ObservableProperty]
@@ -30,13 +34,13 @@ public partial class MainViewModel : ObservableObject
     private string _nextScheduleTime = "Hari ini, 08:00 WIB";
 
     [ObservableProperty]
-    private int _currentPhase = 2; // Tahap 2: Otomasi SAP Aktif
+    private int _currentPhase = 4; // Seluruh 4 Tahap Aktif
 
     [ObservableProperty]
-    private string _phaseStatusText = "Tahap 2: Engine Otomasi SAP GUI Siap";
+    private string _phaseStatusText = "Pipeline 4-Tahap Siap (SAP GUI -> Validasi CSV -> Upload Anti-WAF Darsana)";
 
     [ObservableProperty]
-    private double _progressValue = 50.0;
+    private double _progressValue = 0.0;
 
     [ObservableProperty]
     private bool _isRunning = false;
@@ -60,6 +64,8 @@ public partial class MainViewModel : ObservableObject
     public MainViewModel()
     {
         _sapAutomationService = new SapGuiAutomationService();
+        _csvValidationService = new CsvFileValidationService();
+        _transferService = new DarsanaTransferService();
 
         var appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Atlaz");
         Directory.CreateDirectory(appData);
@@ -70,8 +76,8 @@ public partial class MainViewModel : ObservableObject
         // Cek instalasi SAP GUI lokal
         var sapInstalled = _sapAutomationService.IsSapGuiInstalled();
         StatusMessage = sapInstalled 
-            ? "SAP GUI terdeteksi pada sistem. Siap mengeksekusi Tahap 2." 
-            : "SAP GUI tidak terpasang di komputer ini. Silakan uji coba di komputer server.";
+            ? "SAP GUI terdeteksi. Pipeline 4-Tahap (SAP -> Validasi CSV -> Upload Web Darsana) siap dijalankan." 
+            : "SAP GUI tidak terpasang di PC ini. Silakan jalankan di PC Server SAP.";
 
         LoadMockHistory();
 
@@ -102,6 +108,15 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void SetTransferProtocol(string protocol)
+    {
+        if (!string.IsNullOrWhiteSpace(protocol))
+        {
+            DarsanaConfig.TransferProtocol = protocol;
+        }
+    }
+
+    [RelayCommand]
     public void DiagnoseSap()
     {
         var results = _sapAutomationService.Diagnose();
@@ -127,23 +142,46 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    public async Task TestDarsanaConnectionAsync()
+    {
+        StatusMessage = "Menguji koneksi & token ke Web Darsana...";
+        var (success, msg) = await _transferService.TestConnectionAsync(DarsanaConfig);
+        CurrentStatus = success ? BotStatus.Success : BotStatus.Warning;
+        StatusMessage = msg;
+
+        ExecutionHistory.Insert(0, new ExecutionHistoryItem
+        {
+            Timestamp = DateTime.Now,
+            Step = "Tes Koneksi Web Darsana",
+            FileName = "-",
+            RecordCount = 0,
+            Status = success ? BotStatus.Success : BotStatus.Error,
+            Message = msg
+        });
+    }
+
+    [RelayCommand]
     public async Task RunManualSyncAsync()
     {
         if (IsRunning) return;
 
         IsRunning = true;
         CurrentStatus = BotStatus.Running;
-        StatusMessage = "Menjalankan siklus otomasi...";
+        StatusMessage = "Menjalankan siklus otomasi 4-Tahap...";
 
-        // 1. TAHAP 1: Verifikasi Parameter
+        // =========================================================================
+        // TAHAP 1: Verifikasi Parameter Konfigurasi
+        // =========================================================================
         CurrentPhase = 1;
-        ProgressValue = 25;
-        PhaseStatusText = "Tahap 1: Memeriksa parameter konfigurasi...";
-        await Task.Delay(400);
+        ProgressValue = 20;
+        PhaseStatusText = "Tahap 1: Memeriksa kelengkapan parameter SAP & Web Darsana...";
+        await Task.Delay(300);
 
-        // 2. TAHAP 2: Eksekusi Otomasi SAP GUI
+        // =========================================================================
+        // TAHAP 2: Eksekusi Otomasi SAP GUI (ZFM001 -> CSV -> Close Excel -> Logout)
+        // =========================================================================
         CurrentPhase = 2;
-        ProgressValue = 50;
+        ProgressValue = 45;
         PhaseStatusText = "Tahap 2: Menghubungi SAP GUI -> Login -> ZFM001 -> Download CSV...";
 
         var outputDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Atlaz", "exports");
@@ -172,7 +210,7 @@ public partial class MainViewModel : ObservableObject
         {
             CurrentStatus = BotStatus.Error;
             StatusMessage = $"Tahap 2 Gagal: {sapResult.Message}";
-            PhaseStatusText = "Otomasi SAP dihentikan karena kendala.";
+            PhaseStatusText = "Otomasi dihentikan pada Tahap 2 (SAP GUI).";
             IsRunning = false;
 
             ExecutionHistory.Insert(0, new ExecutionHistoryItem
@@ -187,32 +225,114 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        // 3. TAHAP 3: Validasi CSV
+        // =========================================================================
+        // TAHAP 3: Verifikasi Format Data CSV, Parsing Hirarki & Checksum SHA-256
+        // =========================================================================
         CurrentPhase = 3;
         ProgressValue = 75;
-        PhaseStatusText = "Tahap 3: File CSV berhasil dibuat & diverifikasi.";
-        await Task.Delay(600);
+        PhaseStatusText = "Tahap 3: Memvalidasi struktur kolom CSV ZFM001 & menghitung SHA-256...";
 
-        // 4. TAHAP 4: Upload Data
+        var validationResult = await _csvValidationService.ValidateAndParseZfm001CsvAsync(
+            sapResult.ExportedFilePath,
+            statusCallback: (msg) =>
+            {
+                PhaseStatusText = $"Tahap 3: {msg}";
+            });
+
+        if (!validationResult.IsValid)
+        {
+            CurrentStatus = BotStatus.Error;
+            StatusMessage = $"Tahap 3 Gagal (Format CSV Tidak Sesuai): {validationResult.Message}";
+            PhaseStatusText = "Pengiriman dibatalkan karena file CSV tidak lolos verifikasi Tahap 3.";
+            IsRunning = false;
+
+            ExecutionHistory.Insert(0, new ExecutionHistoryItem
+            {
+                Timestamp = DateTime.Now,
+                Step = "Tahap 3: Validasi CSV",
+                FileName = validationResult.FileName,
+                RecordCount = 0,
+                Status = BotStatus.Error,
+                Message = validationResult.Message
+            });
+            return;
+        }
+
+        // =========================================================================
+        // TAHAP 4: Upload Data ke Web Darsana (Anti-WAF GZip+Base64 / Multipart)
+        // =========================================================================
         CurrentPhase = 4;
-        ProgressValue = 100;
-        PhaseStatusText = "Tahap 4: Mengunggah CSV via SFTP & Verifikasi Selesai.";
-        await Task.Delay(600);
+        ProgressValue = 90;
+        PhaseStatusText = "Tahap 4: Mengirim data tervalidasi ke Web Darsana...";
 
+        // Jika token belum diisi, beri tahu bahwa Tahap 1-3 sukses dan minta token untuk Tahap 4
+        var activeToken = !string.IsNullOrWhiteSpace(DarsanaConfig.ApiToken)
+            ? DarsanaConfig.ApiToken.Trim()
+            : DarsanaConfig.EncryptedPasswordOrToken.Trim();
+
+        if (string.IsNullOrWhiteSpace(activeToken))
+        {
+            ProgressValue = 100;
+            CurrentStatus = BotStatus.Warning;
+            LastRunTime = DateTime.Now.ToString("dd MMM yyyy, HH:mm:ss");
+            StatusMessage = $"Tahap 1-3 Sukses ({validationResult.RowsImported} baris valid). Isi BOT_TOKEN di menu Pengaturan untuk mengaktifkan Upload Tahap 4 ke Web Darsana.";
+            PhaseStatusText = $"CSV Valid ({validationResult.RowsImported} baris, SHA-256: {validationResult.Sha256Checksum[..10]}...). Menunggu konfigurasi Token Web Darsana.";
+            IsRunning = false;
+
+            ExecutionHistory.Insert(0, new ExecutionHistoryItem
+            {
+                Timestamp = DateTime.Now,
+                Step = "Tahap 3: CSV Tervalidasi",
+                FileName = validationResult.FileName,
+                RecordCount = validationResult.RowsImported,
+                Status = BotStatus.Warning,
+                Message = $"{validationResult.Message} (Upload dilewati: BOT_TOKEN belum diisi)"
+            });
+            return;
+        }
+
+        var transferResult = await _transferService.UploadToWebDarsanaAsync(
+            validationResult,
+            DarsanaConfig,
+            statusCallback: (msg) =>
+            {
+                PhaseStatusText = $"Tahap 4: {msg}";
+            });
+
+        if (!transferResult.Success)
+        {
+            CurrentStatus = BotStatus.Error;
+            StatusMessage = $"Tahap 4 Gagal: {transferResult.Message}";
+            PhaseStatusText = $"CSV lokal aman ({validationResult.FileName}), namun gagal diunggah ke Web Darsana.";
+            IsRunning = false;
+
+            ExecutionHistory.Insert(0, new ExecutionHistoryItem
+            {
+                Timestamp = DateTime.Now,
+                Step = "Tahap 4: Upload Darsana",
+                FileName = validationResult.FileName,
+                RecordCount = validationResult.RowsImported,
+                Status = BotStatus.Error,
+                Message = transferResult.Message
+            });
+            return;
+        }
+
+        ProgressValue = 100;
         CurrentStatus = BotStatus.Success;
-        StatusMessage = "Otomasi SAP & Download Laporan Berhasil!";
         LastRunTime = DateTime.Now.ToString("dd MMM yyyy, HH:mm:ss");
-        PhaseStatusText = $"Eksekusi Selesai. File tersimpan di: {Path.GetFileName(sapResult.ExportedFilePath)}";
+        StatusMessage = $"Sinkronisasi 4-Tahap Selesai! {transferResult.RowsImportedOnServer} baris berhasil masuk ke Web Darsana.";
+        PhaseStatusText = $"Sukses Penuh: {validationResult.FileName} ({transferResult.RowsImportedOnServer} baris) -> Terkirim & Diarsipkan.";
         IsRunning = false;
 
         ExecutionHistory.Insert(0, new ExecutionHistoryItem
         {
             Timestamp = DateTime.Now,
-            Step = "Manual Run",
-            FileName = Path.GetFileName(sapResult.ExportedFilePath),
-            RecordCount = 1420,
+            Step = "Full Sync (Tahap 1-4)",
+            FileName = validationResult.FileName,
+            RecordCount = transferResult.RowsImportedOnServer,
             Status = BotStatus.Success,
-            Message = sapResult.Message
+            Message = $"{transferResult.Message} | SHA-256: {validationResult.Sha256Checksum[..10]}..."
         });
     }
 
@@ -260,7 +380,6 @@ public partial class MainViewModel : ObservableObject
             var minutes = Math.Max(1, Schedule.IntervalMinutes);
             if (_lastTriggerDate == DateTime.MinValue)
             {
-                // Pertama kali aktif, jadwalkan trigger interval pertama
                 _lastTriggerDate = now;
                 return false;
             }
@@ -269,7 +388,6 @@ public partial class MainViewModel : ObservableObject
         }
         else
         {
-            // Mode Hourly / Jadwal Jam Harian
             if (!IsDayActive(now.DayOfWeek)) return false;
 
             if (TimeSpan.TryParse(Schedule.ScheduledTimeString, out var targetTime))
@@ -361,10 +479,10 @@ public partial class MainViewModel : ObservableObject
         {
             Timestamp = DateTime.Now.AddDays(-1).AddHours(-4),
             Step = "Scheduled Run",
-            FileName = "ZFM001_20261015_080000.csv",
+            FileName = "realisasi_20261015_0800_ZFM001.csv",
             RecordCount = 1388,
             Status = BotStatus.Success,
-            Message = "Sinkronisasi terjadwal berhasil"
+            Message = "Sinkronisasi terjadwal 4-tahap berhasil"
         });
     }
 }
