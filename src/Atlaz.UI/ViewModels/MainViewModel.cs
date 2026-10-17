@@ -17,6 +17,7 @@ public partial class MainViewModel : ObservableObject
     private readonly ICsvValidationService _csvValidationService;
     private readonly ITransferService _darsanaApiService;
     private readonly ITransferService _sftpTransferService;
+    private readonly ITransferService _ftpTransferService;
     private readonly string _configFilePath;
 
     [ObservableProperty]
@@ -68,6 +69,7 @@ public partial class MainViewModel : ObservableObject
         _csvValidationService = new CsvFileValidationService();
         _darsanaApiService = new DarsanaTransferService();
         _sftpTransferService = new SftpTransferService();
+        _ftpTransferService = new FtpTransferService();
 
         var appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Atlaz");
         Directory.CreateDirectory(appData);
@@ -143,12 +145,23 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    private ITransferService GetActiveTransferService()
+    {
+        if (DarsanaConfig.IsSftp)
+        {
+            // Port 21 = FTP standar cPanel (FluentFTP), Port 22 = SFTP SSH (SSH.NET)
+            return DarsanaConfig.Port == 21 ? _ftpTransferService : _sftpTransferService;
+        }
+        return _darsanaApiService;
+    }
+
     [RelayCommand]
     public async Task TestDarsanaConnectionAsync()
     {
-        bool isSftp = DarsanaConfig.IsSftp;
-        StatusMessage = isSftp ? "Menguji koneksi SFTP ke server cPanel..." : "Menguji koneksi API ke Web Darsana...";
-        var service = isSftp ? _sftpTransferService : _darsanaApiService;
+        var service = GetActiveTransferService();
+        var protocolName = DarsanaConfig.IsSftp ? (DarsanaConfig.Port == 21 ? "FTP (Port 21)" : "SFTP (Port 22)") : "API";
+
+        StatusMessage = $"Menguji koneksi {protocolName} ke server cPanel...";
         var (success, msg) = await service.TestConnectionAsync(DarsanaConfig);
         CurrentStatus = success ? BotStatus.Success : BotStatus.Warning;
         StatusMessage = msg;
@@ -156,11 +169,198 @@ public partial class MainViewModel : ObservableObject
         ExecutionHistory.Insert(0, new ExecutionHistoryItem
         {
             Timestamp = DateTime.Now,
-            Step = isSftp ? "Tes Koneksi SFTP" : "Tes Koneksi API",
+            Step = $"Tes Koneksi {protocolName}",
             FileName = "-",
             RecordCount = 0,
             Status = success ? BotStatus.Success : BotStatus.Error,
             Message = msg
+        });
+    }
+
+    /// <summary>
+    /// TOMBOL 1: Uji coba Tahap 1 s/d 3 saja (Download dari SAP & Validasi CSV Lokal).
+    /// Berhenti di lokal, tanpa melakukan upload ke hosting sama sekali.
+    /// </summary>
+    [RelayCommand]
+    public async Task RunPhase1To3Async()
+    {
+        if (IsRunning) return;
+
+        IsRunning = true;
+        CurrentStatus = BotStatus.Running;
+        StatusMessage = "Menjalankan Uji Coba Tahap 1 s.d 3 (SAP -> CSV Lokal)...";
+
+        // Tahap 1
+        CurrentPhase = 1;
+        ProgressValue = 25;
+        PhaseStatusText = "Tahap 1: Memeriksa parameter konfigurasi SAP...";
+        await Task.Delay(300);
+
+        // Tahap 2
+        CurrentPhase = 2;
+        ProgressValue = 55;
+        PhaseStatusText = "Tahap 2: Menghubungi SAP GUI -> Login -> ZFM001 -> Download CSV...";
+
+        var outputDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Atlaz", "exports");
+
+        var sapResult = await _sapAutomationService.ExecuteZfm001DownloadAsync(
+            systemId: SapConfig.SystemId,
+            client: SapConfig.Client,
+            username: SapConfig.Username,
+            password: SapConfig.EncryptedPassword,
+            fmArea: SapConfig.FmArea,
+            budgetCategory: SapConfig.BudgetCategory,
+            version: SapConfig.Version,
+            fiscalYear: SapConfig.FiscalYear,
+            fromPeriod: SapConfig.FromPeriod,
+            toPeriod: SapConfig.ToPeriod,
+            fundsCenterFrom: SapConfig.FundsCenterFrom,
+            fundsCenterTo: SapConfig.FundsCenterTo,
+            commitmentItem: SapConfig.CommitmentItem,
+            outputDirectory: outputDir,
+            statusCallback: (msg) => { PhaseStatusText = $"Tahap 2: {msg}"; });
+
+        if (!sapResult.Success)
+        {
+            CurrentStatus = BotStatus.Error;
+            StatusMessage = $"Tahap 2 Gagal: {sapResult.Message}";
+            PhaseStatusText = "Otomasi SAP dihentikan karena kendala.";
+            IsRunning = false;
+
+            ExecutionHistory.Insert(0, new ExecutionHistoryItem
+            {
+                Timestamp = DateTime.Now,
+                Step = "Tahap 2: SAP Automation",
+                FileName = "-",
+                RecordCount = 0,
+                Status = BotStatus.Error,
+                Message = sapResult.Message
+            });
+            return;
+        }
+
+        // Tahap 3
+        CurrentPhase = 3;
+        ProgressValue = 100;
+        PhaseStatusText = "Tahap 3: Memvalidasi CSV & menghitung SHA-256...";
+
+        var validationResult = await _csvValidationService.ValidateAndParseZfm001CsvAsync(
+            sapResult.ExportedFilePath,
+            statusCallback: (msg) => { PhaseStatusText = $"Tahap 3: {msg}"; });
+
+        if (!validationResult.IsValid)
+        {
+            CurrentStatus = BotStatus.Error;
+            StatusMessage = $"Tahap 3 Gagal: {validationResult.Message}";
+            PhaseStatusText = "File CSV tidak lolos validasi.";
+        }
+        else
+        {
+            CurrentStatus = BotStatus.Success;
+            LastRunTime = DateTime.Now.ToString("dd MMM yyyy, HH:mm:ss");
+            StatusMessage = $"Uji Tahap 1-3 SUKSES! File CSV lokal siap: {validationResult.FileName} ({validationResult.RowsImported} baris).";
+            PhaseStatusText = $"Selesai Tahap 1-3. File tersimpan: {validationResult.FileName} (Siap diuji upload pada Tombol 2).";
+        }
+
+        IsRunning = false;
+        ExecutionHistory.Insert(0, new ExecutionHistoryItem
+        {
+            Timestamp = DateTime.Now,
+            Step = "Uji Tahap 1-3 (SAP -> CSV)",
+            FileName = validationResult.FileName,
+            RecordCount = validationResult.RowsImported,
+            Status = validationResult.IsValid ? BotStatus.Success : BotStatus.Error,
+            Message = validationResult.Message
+        });
+    }
+
+    /// <summary>
+    /// TOMBOL 2: Uji coba Tahap 4 Saja (Upload CSV Terakhir ke Hosting via FTP/SFTP).
+    /// Mengambil file CSV yang sudah ada di lokal tanpa login ke SAP sama sekali!
+    /// </summary>
+    [RelayCommand]
+    public async Task RunPhase4OnlyAsync()
+    {
+        if (IsRunning) return;
+
+        var outputDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Atlaz", "exports");
+        if (!Directory.Exists(outputDir))
+        {
+            StatusMessage = "Folder export lokal belum ada. Silakan jalankan Tahap 1 s.d 3 terlebih dahulu.";
+            return;
+        }
+
+        // Cari file CSV terbaru yang ada di folder exports
+        var latestCsv = Directory.GetFiles(outputDir, "*.csv")
+            .Select(f => new FileInfo(f))
+            .OrderByDescending(f => f.LastWriteTime)
+            .FirstOrDefault();
+
+        if (latestCsv == null)
+        {
+            StatusMessage = "Tidak ada file CSV yang ditemukan di folder exports. Jalankan Tahap 1 s.d 3 terlebih dahulu untuk mengunduh dari SAP.";
+            return;
+        }
+
+        IsRunning = true;
+        CurrentStatus = BotStatus.Running;
+        StatusMessage = $"Menjalankan Uji Tahap 4 Saja menggunakan file lokal: {latestCsv.Name} (Tanpa login SAP)...";
+
+        // Tahap 3: Validasi file lokal terlebih dahulu
+        CurrentPhase = 3;
+        ProgressValue = 50;
+        PhaseStatusText = $"Membaca & memvalidasi file lokal: {latestCsv.Name}...";
+
+        var validationResult = await _csvValidationService.ValidateAndParseZfm001CsvAsync(
+            latestCsv.FullName,
+            statusCallback: (msg) => { PhaseStatusText = msg; });
+
+        if (!validationResult.IsValid)
+        {
+            CurrentStatus = BotStatus.Error;
+            StatusMessage = $"Validasi gagal: {validationResult.Message}";
+            IsRunning = false;
+            return;
+        }
+
+        // Tahap 4: Upload ke hosting
+        CurrentPhase = 4;
+        ProgressValue = 85;
+        var service = GetActiveTransferService();
+        var protocolName = DarsanaConfig.IsSftp ? (DarsanaConfig.Port == 21 ? "FTP (Port 21)" : "SFTP (Port 22)") : "API";
+
+        PhaseStatusText = $"Tahap 4: Mengunggah {validationResult.FileName} via {protocolName}...";
+
+        var transferResult = await service.UploadToWebDarsanaAsync(
+            validationResult,
+            DarsanaConfig,
+            statusCallback: (msg) => { PhaseStatusText = msg; });
+
+        ProgressValue = 100;
+        IsRunning = false;
+
+        if (transferResult.Success)
+        {
+            CurrentStatus = BotStatus.Success;
+            LastRunTime = DateTime.Now.ToString("dd MMM yyyy, HH:mm:ss");
+            StatusMessage = $"Uji Tahap 4 SUKSES! File berhasil masuk ke server hosting: {transferResult.Message}";
+            PhaseStatusText = $"Upload Selesai: {validationResult.FileName} berhasil diunggah.";
+        }
+        else
+        {
+            CurrentStatus = BotStatus.Error;
+            StatusMessage = $"Tahap 4 Gagal: {transferResult.Message}";
+            PhaseStatusText = $"Gagal unggah ke server hosting.";
+        }
+
+        ExecutionHistory.Insert(0, new ExecutionHistoryItem
+        {
+            Timestamp = DateTime.Now,
+            Step = $"Uji Tahap 4 ({protocolName})",
+            FileName = validationResult.FileName,
+            RecordCount = validationResult.RowsImported,
+            Status = transferResult.Success ? BotStatus.Success : BotStatus.Error,
+            Message = transferResult.Message
         });
     }
 
@@ -268,11 +468,12 @@ public partial class MainViewModel : ObservableObject
         CurrentPhase = 4;
         ProgressValue = 90;
 
-        ITransferService transferService;
+        ITransferService transferService = GetActiveTransferService();
+        var protocolName = DarsanaConfig.IsSftp ? (DarsanaConfig.Port == 21 ? "FTP (Port 21)" : "SFTP (Port 22)") : "API";
+
         if (DarsanaConfig.IsSftp)
         {
-            PhaseStatusText = "Tahap 4: Mengunggah file CSV via SFTP cPanel (Port 22 - Bebas Imunify360)...";
-            transferService = _sftpTransferService;
+            PhaseStatusText = $"Tahap 4: Mengunggah file CSV via {protocolName} cPanel (Bebas Imunify360)...";
 
             var host = DarsanaConfig.Host?.Trim();
             var user = DarsanaConfig.Username?.Trim();

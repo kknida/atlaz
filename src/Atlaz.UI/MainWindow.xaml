@@ -135,17 +135,35 @@
                                 <TextBlock Text="Tekan tombol untuk menguji alur otomasi SAP ZFM001 secara langsung dari parameter yang telah Anda konfigurasi." 
                                            FontSize="12" Foreground="#0284C7" Margin="0,4,0,0" TextWrapping="Wrap"/>
                             </StackPanel>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                <Button Content="🔍  Cek Kesiapan SAP" 
-                                        Command="{Binding DiagnoseSapCommand}"
-                                        Background="#E2E8F0" Foreground="#0F172A" 
-                                        FontSize="13" FontWeight="SemiBold" 
-                                        Padding="14,12" Margin="0,0,10,0" BorderThickness="0" Cursor="Hand"/>
-                                <Button Content="▶  RUN MANUAL SEKARANG" 
-                                        Command="{Binding RunManualSyncCommand}"
-                                        Background="#0284C7" Foreground="#FFFFFF" 
-                                        FontSize="14" FontWeight="Bold" 
-                                        Padding="20,12" BorderThickness="0" Cursor="Hand"/>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,8">
+                                    <Button Content="🔍  Cek Kesiapan SAP" 
+                                            Command="{Binding DiagnoseSapCommand}"
+                                            Background="#E2E8F0" Foreground="#0F172A" 
+                                            FontSize="12.5" FontWeight="SemiBold" 
+                                            Padding="12,10" Margin="0,0,8,0" BorderThickness="0" Cursor="Hand"/>
+                                    <Button Content="▶  RUN MANUAL SEKARANG (Tahap 1-4)" 
+                                            Command="{Binding RunManualSyncCommand}"
+                                            Background="#0284C7" Foreground="#FFFFFF" 
+                                            FontSize="13" FontWeight="Bold" 
+                                            Padding="16,10" BorderThickness="0" Cursor="Hand"/>
+                                </StackPanel>
+
+                                <!-- Baris Tombol Pemecah Proses (Uji Coba Terpisah Tanpa Mengunci Akun SAP) -->
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <Button Content="📥  1. Uji Tahap 1 s.d 3 (SAP ➔ CSV Saja)" 
+                                            Command="{Binding RunPhase1To3Command}"
+                                            Background="#D97706" Foreground="#FFFFFF" 
+                                            FontSize="12" FontWeight="SemiBold" 
+                                            Padding="12,7" Margin="0,0,8,0" BorderThickness="0" Cursor="Hand"
+                                            ToolTip="Hanya mengunduh dari SAP dan memvalidasi file CSV lokal. Tidak mengirim ke server."/>
+                                    <Button Content="🚀  2. Uji Tahap 4 Saja (Upload CSV Terakhir)" 
+                                            Command="{Binding RunPhase4OnlyCommand}"
+                                            Background="#059669" Foreground="#FFFFFF" 
+                                            FontSize="12" FontWeight="SemiBold" 
+                                            Padding="12,7" BorderThickness="0" Cursor="Hand"
+                                            ToolTip="Menguji upload file CSV terakhir yang sudah ada di lokal ke cPanel hosting. Tanpa login SAP!"/>
+                                </StackPanel>
                             </StackPanel>
                         </Grid>
                     </Border>
