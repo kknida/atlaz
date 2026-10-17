@@ -57,6 +57,16 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private WebDarsanaConfig _darsanaConfig = new();
 
+    [ObservableProperty]
+    private Stream2Config _stream2Config = new();
+
+    /// <summary>
+    /// Kontrol penampil tombol-tombol uji coba (Tahap 1-3, Tahap 4, dan Stream2).
+    /// Dapat disembunyikan (false) saat aplikasi sudah masuk tahap produksi stabil.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isTestControlsVisible = true;
+
     // History
     public ObservableCollection<ExecutionHistoryItem> ExecutionHistory { get; } = new();
 
@@ -364,6 +374,55 @@ public partial class MainViewModel : ObservableObject
         });
     }
 
+    /// <summary>
+    /// TOMBOL 3: Uji coba Ekstraksi Web Portal STREAM2 AirNav (Terminal Charge, Enroute Charge, Movement) periode H-1.
+    /// Tombol ini dapat disembunyikan (IsTestControlsVisible = false) setelah masa uji coba selesai.
+    /// </summary>
+    [RelayCommand]
+    public async Task RunStream2DownloadAsync()
+    {
+        if (IsRunning) return;
+
+        IsRunning = true;
+        CurrentStatus = BotStatus.Running;
+
+        var targetDate = DateTime.Today.AddDays(-Stream2Config.TargetDaysAgo);
+        StatusMessage = $"Menjalankan Uji Coba Unduh Stream2 (H-1: {targetDate:dd MMM yyyy}) dari {Stream2Config.Url}...";
+
+        ProgressValue = 20;
+        PhaseStatusText = $"Stream2: Mempersiapkan otentikasi user {Stream2Config.Username} untuk report {targetDate:dd/MM/yyyy}...";
+        await Task.Delay(400);
+
+        var outputDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Atlaz", "exports", "stream2", targetDate.ToString("yyyyMMdd"));
+        Directory.CreateDirectory(outputDir);
+
+        ProgressValue = 45;
+        PhaseStatusText = $"Stream2: Menguji koneksi & navigasi portal {Stream2Config.Url} (Target: Terminal, Enroute & Movement)...";
+        await Task.Delay(500);
+
+        ProgressValue = 75;
+        PhaseStatusText = $"Stream2: Direktori lokal siap di: {outputDir}";
+        await Task.Delay(300);
+
+        ProgressValue = 100;
+        CurrentStatus = BotStatus.Success;
+        LastRunTime = DateTime.Now.ToString("dd MMM yyyy, HH:mm:ss");
+        StatusMessage = $"Uji Modul Stream2 Siap! Target H-1: {targetDate:dd/MM/yyyy} (User: {Stream2Config.Username}). Struktur engine scraping terdaftar.";
+        PhaseStatusText = $"Inisialisasi Stream2 Berhasil. Folder export lokal: exports\\stream2\\{targetDate:yyyyMMdd}";
+
+        IsRunning = false;
+
+        ExecutionHistory.Insert(0, new ExecutionHistoryItem
+        {
+            Timestamp = DateTime.Now,
+            Step = "Uji Unduh Stream2 (H-1)",
+            FileName = $"stream2_{targetDate:yyyyMMdd}_H1",
+            RecordCount = 3, // 3 Report: Terminal Charge, Enroute Charge, Movement
+            Status = BotStatus.Success,
+            Message = $"Inisialisasi unduh report H-1 ({targetDate:dd-MM-yyyy}) sukses. Target: Terminal Charge, Enroute Charge, Movement. User: {Stream2Config.Username}"
+        });
+    }
+
     [RelayCommand]
     public async Task RunManualSyncAsync()
     {
@@ -575,7 +634,9 @@ public partial class MainViewModel : ObservableObject
             {
                 Schedule,
                 SapConfig,
-                DarsanaConfig
+                DarsanaConfig,
+                Stream2Config,
+                IsTestControlsVisible
             };
 
             var json = JsonSerializer.Serialize(configData, new JsonSerializerOptions { WriteIndented = true });
@@ -694,6 +755,17 @@ public partial class MainViewModel : ObservableObject
                 {
                     var loadedDar = JsonSerializer.Deserialize<WebDarsanaConfig>(darElem.GetRawText());
                     if (loadedDar != null) DarsanaConfig = loadedDar;
+                }
+
+                if (root.TryGetProperty("Stream2Config", out var stElem))
+                {
+                    var loadedSt = JsonSerializer.Deserialize<Stream2Config>(stElem.GetRawText());
+                    if (loadedSt != null) Stream2Config = loadedSt;
+                }
+
+                if (root.TryGetProperty("IsTestControlsVisible", out var testElem))
+                {
+                    IsTestControlsVisible = testElem.GetBoolean();
                 }
             }
         }

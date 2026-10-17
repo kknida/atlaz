@@ -5,8 +5,8 @@
 - **Deskripsi Proyek:** Desktop Bot Otomasi Ekstraksi SAP GUI (`ZFM001` - *Report FM for AirNav 2024*) ke CSV & Sinkronisasi Data ke Web Darsana (Laravel Dashboard).
 - **Platform Saat Ini:** Windows Desktop (.NET 8 / WPF - MVVM, Self-Contained `win-x64`).
 - **Sifat Dokumen:** *Master Blueprint & Cross-Platform Specification*. Dokumen ini merangkum seluruh aturan bisnis, alur UI, parameter form, ID elemen SAP GUI Scripting, mekanisme penutupan aplikasi peninjau CSV otomatis, penjadwalan dinamis, hingga struktur data agar aplikasi dapat dibangun ulang (*rebuild*) atau di-porting ke bahasa/platform apa pun (C#, Python, Node.js/Electron, Go, Rust, VBScript) tanpa kehilangan konteks sedikit pun.
-- **Metode Pengembangan:** 4 Tahapan Bertahap (*Phase-Gated Development Roadmap*).
-- **Status Saat Ini:** Tahap 1 & Tahap 2 Selesai dan Teruji di Server Produksi SAP (`INTERNET PROD - AEP`). Siap memasuki Tahap 3 & 4.
+- **Metode Pengembangan:** Bertahap (*Phase-Gated Development Roadmap*) + Modul Ekspansi Portal Eksternal.
+- **Status Saat Ini:** Seluruh 4 Tahap Utama (Tahap 1 s.d 4) **SELESAI PENUH & TERUJI DI PRODUKSI** (SAP GUI & Hosting cPanel Web Darsana). Sedang memasuki tahap pengembangan modul ekspansi: **Otomasi Web Portal STREAM2 AirNav**.
 
 ---
 
@@ -405,12 +405,23 @@ Urutan pemanggilan method/property objek `session` SAP GUI Scripting tidak berga
 - [x] Sesi SAP GUI ditutup dan di-logout secara bersih jika bot yang melakukan login awal.
 
 ### Tahap 3: Verifikasi Format Data CSV
-- [ ] Penyesuaian validator CSV dengan 14 kolom header riil `ZFM001` AirNav (`Funds Center/Commitment Item`, `RKAP`, `BudgetRelease`, dst.) dan checksum SHA-256.
-- [ ] Pengujian alur berhenti otomatis jika file tidak valid.
+- [x] Penyesuaian validator CSV dengan 14 kolom header riil `ZFM001` AirNav (`Funds Center/Commitment Item`, `RKAP`, `BudgetRelease`, dst.) dan checksum SHA-256 (`CsvFileValidationService.cs`).
+- [x] Pengujian alur berhenti otomatis jika format atau header file rusak.
+- [x] Perhitungan hash SHA-256 sebelum file diunggah untuk jaminan integritas data (*data integrity audit*).
 
-### Tahap 4: Upload Data ke Web Darsana
-- [ ] Pengiriman file CSV ke server Web Darsana via SFTP (`SSH.NET`) atau API resmi yang di-whitelist tanpa terkena blokir HTTP 403 Imunify360.
-- [ ] Verifikasi import di Web Darsana dan pengarsipan file CSV lokal.
+### Tahap 4: Upload Data ke Web Darsana & Integrasi Backend Hosting
+- [x] Pengiriman file CSV ke server Web Darsana melalui protokol FTP murni (`FluentFTP`) dan SFTP (`SSH.NET`) pada port 21/22 yang kebal terhadap blokir HTTP 403 Imunify360 WAF.
+- [x] Isolasi direktori FTP pada cPanel (*chrooted*) mengarah langsung ke `darsana/storage/app/sap/incoming` tanpa risiko menimpa atau menghapus file sistem web lainnya.
+- [x] Mekanisme pemecah pengujian UI pada Dashboard:
+  - **Tombol 1 (Amber):** `📥 1. Uji Tahap 1 s.d 3 (SAP ➔ CSV Saja)` -> Menghindari penumpukan login SAP.
+  - **Tombol 2 (Emerald):** `🚀 2. Uji Tahap 4 Saja (Upload CSV Terakhir)` -> Menguji unggah FTP langsung tanpa membuka SAP GUI.
+- [x] Refaktor Backend Laravel Web Darsana (`app/Console/Commands/ImportSapData.php`):
+  - Mengintegrasikan `SapImportService` sehingga setiap eksekusi otomatis tercatat ke tabel `import_logs` dengan label `source = 'new_atlazbot'`.
+  - Penanganan khusus pemfilteran baris *Grand Total / Funds Center* SAP agar data numerik tidak terdistorsi.
+  - Pemindahan otomatis file CSV yang berhasil diproses ke `storage/app/sap/archive/` (dan file rusak ke `storage/app/sap/failed/`), menjaga efisiensi storage hosting (~10 KB/hari).
+- [x] Penjadwalan Cron Job server cPanel aktif:
+  `/usr/local/bin/php /home/u1724553/darsana/artisan sap:import >> /dev/null 2>&1` pada pukul 06:00 WIB setiap hari.
+- [x] Sinkronisasi Git penuh ke repository `https://github.com/kknida/darsana.git` (branch `main`).
 
 ---
 
@@ -431,17 +442,99 @@ Urutan pemanggilan method/property objek `session` SAP GUI Scripting tidak berga
 - **Penyebab:** Transaksi `ZFM001` menggunakan modul Report Writer (`SAPLGRWOS`), sehingga ekspor tidak bisa menggunakan perintah standar `/n%PC` melainkan harus memilih tipe output Spreadsheet (`tbar[1]/btn[7]`) sebelum mengeksekusi laporan, lalu menekan tombol Export (`tbar[1]/btn[14]`) dan mengisi `ctxtLGRWO-OUT_FILE` dengan ekstensi `.csv`.
 - **Solusi:** Telah diimplementasikan secara penuh pada `SapGuiAutomationService.cs` mengacu pada skrip `export_sap.vbs`.
 
-### 9.4 Rilis & Distribusi Portable
+### 9.4 Kendala: Blokir HTTP 403 Forbidden Imunify360 pada Shared Hosting
+- **Penyebab:** Proteksi Web Application Firewall (WAF) Imunify360 di cPanel memblokir request POST berukuran besar atau request HTTP terotomasi dari desktop.
+- **Solusi:** Menambahkan engine transfer **FluentFTP** (`FtpTransferService.cs`) yang berjalan pada protokol TCP Port 21 (FTP / FTPS). Jalur FTP tidak melewati inspeksi lapisan HTTP WAF Imunify360 sehingga transfer file CSV selalu 100% lolos.
+
+### 9.5 Kendala: Akun SAP Terkunci (*Account Locked Due to Too Many Logins*)
+- **Penyebab:** Melakukan pengujian alur penuh (Tahap 1 s.d 4) berulang-ulang untuk mengetes transfer FTP menyebabkan bot melakukan login SAP berkali-kali dalam waktu singkat.
+- **Solusi:** Membuat 2 tombol uji terpisah pada Dashboard Atlaz:
+  - **Tombol 1:** Menjalankan Tahap 1 s.d 3 (khusus menguji login SAP & menghasilkan file CSV lokal).
+  - **Tombol 2:** Menjalankan Tahap 4 saja (mengambil file CSV lokal terakhir dan mengunggah ke FTP tanpa perlu membuka atau login ke SAP).
+
+### 9.6 Kendala: Direktori Akun FTP Menimpa Source Code Website
+- **Penyebab:** Pembuatan akun FTP default cPanel mengarah ke folder publik `public_html/...`, yang berisiko merusak struktur backend web bila terjadi kesalahan path.
+- **Solusi:** Isolasi akun FTP (*chroot jail*) dengan menetapkan direktori akun di cPanel langsung ke:
+  `darsana/storage/app/sap/incoming`
+  Sehingga root FTP (`/`) langsung mendarat di folder incoming Laravel dan tidak memiliki izin mengakses folder sistem lain di atasnya.
+
+### 9.7 Kendala: Data CSV Masuk Tanpa Tercatat di `import_logs` & Baris Grand Total Ikut Terunggah
+- **Penyebab:** Perintah bawaan `sap:import` lama menggunakan query insert manual tanpa memanggil `SapImportService` dan belum memfilter baris ringkasan `"Funds Center"` di akhir CSV.
+- **Solusi:**
+  - Memperbarui `app/Console/Commands/ImportSapData.php` untuk memanggil `SapImportService->import($filePath, $fileName, 'new_atlazbot')`.
+  - Mengabaikan baris Grand Total `"Funds Center"` dari tabel item detail, dan memindahkan file CSV yang selesai diproses ke folder `archive/` (atau `failed/` bila gagal).
+  - Memasang Cron Job cPanel pada pukul 06:00 WIB setiap hari.
+
+### 9.8 Rilis & Distribusi Portable
 - Setiap perubahan kode dikompilasi menjadi paket mandiri (*self-contained* `win-x64`) dan dipublikasikan ke GitHub Release:
   - **Repository:** `https://github.com/kknida/atlaz`
   - **Direct Download Portable ZIP:** `https://github.com/kknida/atlaz/releases/download/v1.0.0/Atlaz_Server_Portable_v1.0.zip`
 
-### 9.3 Kendala: Hasil Ekspor CSV Tidak Terbaca Utuh / Berbeda dari Manual
-- **Penyebab:** Transaksi `ZFM001` menggunakan modul Report Writer (`SAPLGRWOS`), sehingga ekspor tidak bisa menggunakan perintah standar `/n%PC` melainkan harus memilih tipe output Spreadsheet (`tbar[1]/btn[7]`) sebelum mengeksekusi laporan, lalu menekan tombol Export (`tbar[1]/btn[14]`) dan mengisi `ctxtLGRWO-OUT_FILE` dengan ekstensi `.csv`.
-- **Solusi:** Telah diimplementasikan secara penuh pada `SapGuiAutomationService.cs` mengacu pada skrip `export_sap.vbs`.
+---
 
-### 9.4 Rilis & Distribusi Portable
-- Setiap perubahan kode dikompilasi menjadi paket mandiri (*self-contained* `win-x64`) dan dipublikasikan ke GitHub Release:
-  - **Repository:** `https://github.com/kknida/atlaz`
-  - **Direct Download Portable ZIP:** `https://github.com/kknida/atlaz/releases/download/v1.0.0/Atlaz_Server_Portable_v1.0.zip`
+## 10. ISSUE & MASTER BLUEPRINT: Modul Otomasi Web Portal STREAM2 AirNav (`https://stream2.airnavindonesia.co.id/`)
+
+### 10.1 Latar Belakang & Ruang Lingkup
+Aplikasi Atlaz dirancang untuk menjadi pusat otomasi penarikan data (*Unified Automation Bot*) operasional dan finansial di lingkungan AirNav Indonesia. Setelah otomasi SAP GUI `ZFM001` selesai dan stabil, bot diperluas untuk mengotomasi pengunduhan data harian dari portal web internal **STREAM2** (`https://stream2.airnavindonesia.co.id/`).
+
+### 10.2 Parameter Kredensial & Sasaran Portal
+| Parameter | Nilai Konfigurasi | Keterangan |
+| :--- | :--- | :--- |
+| **URL Portal** | `https://stream2.airnavindonesia.co.id/` | Endpoint web aplikasi STREAM2 AirNav |
+| **Username** | `WARR4` | Kredensial resmi unit / cabang |
+| **Password** | `123` | Password akun portal |
+| **Periode Data Target** | **$H-1$ (Hari Sebelumnya)** | Tanggal laporan dihitung dinamis: `DateTime.Today.AddDays(-1)` |
+
+### 10.3 Tiga Laporan Data Utama yang Diunduh
+Bot diinstruksikan untuk mengunduh 3 modul report operasional pada periode $H-1$:
+1. **Data Terminal Charge:**
+   - Laporan biaya pelayanan navigasi penerbangan terminal (*Terminal Navigation Services Charge*).
+   - Format unduhan target: Excel (`.xlsx` / `.xls`) atau CSV.
+   - Target tabel Web Darsana: `terminal_uploads` & `terminal_data`.
+2. **Data Enroute Charge:**
+   - Laporan biaya pelayanan navigasi penerbangan jelajah (*En-route Navigation Services Charge*).
+   - Format unduhan target: Excel / CSV.
+   - Target tabel Web Darsana: `enroute_uploads` & `enroute_data`.
+3. **Data Movement:**
+   - Laporan pergerakan pesawat udara (*Aircraft Traffic & Flight Movement Data*).
+   - Target tabel Web Darsana: `traffic_uploads` & `traffic_data`.
+
+### 10.4 Logika Tanggal Dinamis ($H-1$)
+Setiap kali bot dieksekusi (baik melalui jadwal rutin pagi maupun eksekusi tombol):
+```csharp
+DateTime targetReportDate = DateTime.Today.AddDays(-1);
+string reportDateStr = targetReportDate.ToString("yyyy-MM-dd"); // Format standar database
+string reportDateDisplay = targetReportDate.ToString("dd-MM-yyyy"); // Format input web portal
+```
+*Contoh:* Jika bot berjalan pada tanggal **18 Oktober 2026 pukul 06:00 WIB**, data yang ditarik dari STREAM2 adalah data operasional tanggal **17 Oktober 2026**.
+
+### 10.5 Opsi Arsitektur Teknis Otomasi Web
+Terdapat 2 pendekatan implementasi teknis untuk modul STREAM2:
+1. **Opsi 1: Headless Browser Otomasi (Playwright / PuppeteerSharp / WebView2)**
+   - **Kelebihan:** Mampu menangani Single Page Application (SPA), rendering JavaScript dinamis, trigger dropdown kalender datepicker, dan tombol ekspor bawaan web tanpa terpengaruh proteksi CSRF form token.
+   - **Alur:** Buka browser headless -> Buka `https://stream2.airnavindonesia.co.id/` -> Isi username `WARR4` & password `123` -> Submit Login -> Navigasi ke masing-masing menu -> Atur filter tanggal ke $H-1$ -> Klik Export/Download -> Simpan ke direktori lokal.
+2. **Opsi 2: Direct HTTP Client dengan CookieContainer**
+   - **Kelebihan:** Sangat ringan dan cepat tanpa membutuhkan engine browser.
+   - **Kebutuhan:** Membutuhkan analisis network traffic (POST login form, session cookie, endpoint download file report).
+
+### 10.6 Struktur Penyimpanan Lokal
+File yang berhasil diunduh disimpan ke direktori aplikasi:
+`%LocalAppData%\Atlaz\exports\stream2\{yyyyMMdd}\`
+- Contoh:
+  - `TerminalCharge_20261017.xlsx`
+  - `EnrouteCharge_20261017.xlsx`
+  - `MovementData_20261017.xlsx`
+
+### 10.7 Alur Tombol Uji Coba pada UI Dashboard & Kebijakan *Auto-Hide*
+Untuk memfasilitasi pengujian bertahap tanpa mengganggu jadwal otomasi utama:
+1. **Penempatan Tombol di UI:**
+   Ditempatkan tepat di bawah tombol uji SAP Tahap 1-3 dan Tahap 4:
+   - **Tombol 1 (Amber):** `📥 1. Uji Tahap 1 s.d 3 (SAP ➔ CSV Saja)`
+   - **Tombol 2 (Emerald):** `🚀 2. Uji Tahap 4 Saja (Upload CSV Terakhir)`
+   - **Tombol 3 (Purple):** `🌐 3. Uji Unduh Stream2 (H-1: Terminal, Enroute & Movement)`
+2. **Kebijakan Penyembunyian (*Auto-Hide Policy*):**
+   - Seluruh baris tombol pengujian (Tombol 1, 2, dan 3) diikat ke properti MVVM `IsTestControlsVisible` (tipe `bool`).
+   - Selama masa pengembangan dan pengujian, `IsTestControlsVisible = true`.
+   - Setelah masa uji coba selesai dan seluruh alur terbukti stabil di produksi, properti ini diset menjadi `false` (atau disembunyikan via konfigurasi) sehingga tampilan Dashboard kembali bersih hanya menyisakan tombol operasional utama `▶ RUN MANUAL SEKARANG`.
+
 

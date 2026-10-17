@@ -149,6 +149,30 @@ public partial class WebDarsanaConfig : ObservableObject
     public bool IsApi => TransferProtocol != "SFTP";
 }
 
+public partial class Stream2Config : ObservableObject
+{
+    [ObservableProperty]
+    private string _url = "https://stream2.airnavindonesia.co.id/";
+
+    [ObservableProperty]
+    private string _username = "WARR4";
+
+    [ObservableProperty]
+    private string _encryptedPassword = "123";
+
+    [ObservableProperty]
+    private int _targetDaysAgo = 1; // H-1 (Hari Sebelumnya)
+
+    [ObservableProperty]
+    private bool _downloadTerminalCharge = true;
+
+    [ObservableProperty]
+    private bool _downloadEnrouteCharge = true;
+
+    [ObservableProperty]
+    private bool _downloadMovement = true;
+}
+
 /// <summary>
 /// Representasi 1 baris tabel budget_realisasi di database Web Darsana.
 /// </summary>

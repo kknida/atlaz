@@ -65,6 +65,9 @@
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
+
+        <!-- Boolean To Visibility Converter -->
+        <BooleanToVisibilityConverter x:Key="BoolToVisConverter"/>
     </Window.Resources>
 
     <Grid>
@@ -149,20 +152,33 @@
                                             Padding="16,10" BorderThickness="0" Cursor="Hand"/>
                                 </StackPanel>
 
-                                <!-- Baris Tombol Pemecah Proses (Uji Coba Terpisah Tanpa Mengunci Akun SAP) -->
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                    <Button Content="📥  1. Uji Tahap 1 s.d 3 (SAP ➔ CSV Saja)" 
-                                            Command="{Binding RunPhase1To3Command}"
-                                            Background="#D97706" Foreground="#FFFFFF" 
-                                            FontSize="12" FontWeight="SemiBold" 
-                                            Padding="12,7" Margin="0,0,8,0" BorderThickness="0" Cursor="Hand"
-                                            ToolTip="Hanya mengunduh dari SAP dan memvalidasi file CSV lokal. Tidak mengirim ke server."/>
-                                    <Button Content="🚀  2. Uji Tahap 4 Saja (Upload CSV Terakhir)" 
-                                            Command="{Binding RunPhase4OnlyCommand}"
-                                            Background="#059669" Foreground="#FFFFFF" 
-                                            FontSize="12" FontWeight="SemiBold" 
-                                            Padding="12,7" BorderThickness="0" Cursor="Hand"
-                                            ToolTip="Menguji upload file CSV terakhir yang sudah ada di lokal ke cPanel hosting. Tanpa login SAP!"/>
+                                <!-- Bagian Tombol Uji Coba (Akan di-hide otomatis saat IsTestControlsVisible = false) -->
+                                <StackPanel Visibility="{Binding IsTestControlsVisible, Converter={StaticResource BoolToVisConverter}}">
+                                    <!-- Baris Tombol Pemecah Proses (Uji Coba Terpisah Tanpa Mengunci Akun SAP) -->
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,6">
+                                        <Button Content="📥  1. Uji Tahap 1 s.d 3 (SAP ➔ CSV Saja)" 
+                                                Command="{Binding RunPhase1To3Command}"
+                                                Background="#D97706" Foreground="#FFFFFF" 
+                                                FontSize="12" FontWeight="SemiBold" 
+                                                Padding="12,7" Margin="0,0,8,0" BorderThickness="0" Cursor="Hand"
+                                                ToolTip="Hanya mengunduh dari SAP dan memvalidasi file CSV lokal. Tidak mengirim ke server."/>
+                                        <Button Content="🚀  2. Uji Tahap 4 Saja (Upload CSV Terakhir)" 
+                                                Command="{Binding RunPhase4OnlyCommand}"
+                                                Background="#059669" Foreground="#FFFFFF" 
+                                                FontSize="12" FontWeight="SemiBold" 
+                                                Padding="12,7" BorderThickness="0" Cursor="Hand"
+                                                ToolTip="Menguji upload file CSV terakhir yang sudah ada di lokal ke cPanel hosting. Tanpa login SAP!"/>
+                                    </StackPanel>
+
+                                    <!-- Tombol Uji Coba Modul Ekstraksi STREAM2 (Portal Web AirNav - Periode H-1) -->
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                        <Button Content="🌐  3. Uji Unduh Stream2 (H-1: Terminal, Enroute &amp; Movement)" 
+                                                Command="{Binding RunStream2DownloadCommand}"
+                                                Background="#7C3AED" Foreground="#FFFFFF" 
+                                                FontSize="12" FontWeight="SemiBold" 
+                                                Padding="14,7" BorderThickness="0" Cursor="Hand"
+                                                ToolTip="Uji coba penarikan data H-1 dari portal https://stream2.airnavindonesia.co.id/ (Data Terminal Charge, Enroute Charge, dan Movement). Tombol ini akan disembunyikan setelah masa uji selesai."/>
+                                    </StackPanel>
                                 </StackPanel>
                             </StackPanel>
                         </Grid>
