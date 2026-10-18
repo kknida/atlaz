@@ -14,6 +14,14 @@ public interface ITransferService
         Action<string>? statusCallback = null);
 
     /// <summary>
+    /// Mengunggah file arbiter (misal: Excel Stream2) langsung ke remote path hosting
+    /// </summary>
+    Task<TransferResult> UploadFileAsync(
+        string localFilePath,
+        WebDarsanaConfig config,
+        Action<string>? statusCallback = null);
+
+    /// <summary>
     /// Menguji koneksi & autentikasi Bearer Token ke endpoint /api/sap/heartbeat Web Darsana.
     /// </summary>
     Task<(bool Success, string Message)> TestConnectionAsync(WebDarsanaConfig config);

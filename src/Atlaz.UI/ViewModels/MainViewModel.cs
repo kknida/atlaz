@@ -408,21 +408,56 @@ public partial class MainViewModel : ObservableObject
             statusCallback: (msg) =>
             {
                 PhaseStatusText = msg;
-                if (ProgressValue < 90) ProgressValue += 15;
+                if (ProgressValue < 70) ProgressValue += 10;
             });
-
-        ProgressValue = 100;
-        IsRunning = false;
 
         if (streamResult.Success)
         {
-            CurrentStatus = BotStatus.Success;
+            var uploadedCount = 0;
+            var uploadErrors = new List<string>();
+
+            if (streamResult.DownloadedFiles.Count > 0)
+            {
+                PhaseStatusText = $"Mengunggah {streamResult.DownloadedFiles.Count} file Stream2 ke server hosting...";
+                var transferService = GetActiveTransferService();
+
+                foreach (var file in streamResult.DownloadedFiles)
+                {
+                    var fName = Path.GetFileName(file);
+                    PhaseStatusText = $"Mengunggah {fName} ke server hosting...";
+                    var uploadResult = await transferService.UploadFileAsync(file, DarsanaConfig, (msg) => PhaseStatusText = msg);
+                    if (uploadResult.Success)
+                    {
+                        uploadedCount++;
+                    }
+                    else
+                    {
+                        uploadErrors.Add($"{fName}: {uploadResult.Message}");
+                    }
+                }
+            }
+
+            ProgressValue = 100;
+            IsRunning = false;
             LastRunTime = DateTime.Now.ToString("dd MMM yyyy, HH:mm:ss");
-            StatusMessage = $"Unduh Stream2 SUKSES! {streamResult.TotalDownloaded} file berhasil diunduh ke: exports\\stream2\\{targetDate:yyyyMMdd}";
-            PhaseStatusText = $"Unduhan Selesai ({streamResult.TotalDownloaded} file): {string.Join(", ", streamResult.DownloadedFiles.Select(Path.GetFileName))}";
+
+            if (uploadErrors.Count == 0)
+            {
+                CurrentStatus = BotStatus.Success;
+                StatusMessage = $"Unduh & Unggah Stream2 SUKSES! {streamResult.TotalDownloaded} file berhasil diunduh dan diunggah ke hosting.";
+                PhaseStatusText = $"Selesai ({uploadedCount}/{streamResult.TotalDownloaded} terunggah): {string.Join(", ", streamResult.DownloadedFiles.Select(Path.GetFileName))}";
+            }
+            else
+            {
+                CurrentStatus = BotStatus.Warning;
+                StatusMessage = $"Unduh Stream2 Sukses, tetapi unggah ke hosting memiliki kendala: {string.Join("; ", uploadErrors)}";
+                PhaseStatusText = $"Unduh selesai, upload {uploadedCount}/{streamResult.TotalDownloaded} file sukses.";
+            }
         }
         else
         {
+            ProgressValue = 100;
+            IsRunning = false;
             CurrentStatus = BotStatus.Error;
             StatusMessage = $"Stream2 Gagal: {streamResult.Message}";
             PhaseStatusText = "Gagal mengunduh laporan dari portal Stream2. Pastikan PC terhubung ke intranet AirNav.";
@@ -431,11 +466,11 @@ public partial class MainViewModel : ObservableObject
         ExecutionHistory.Insert(0, new ExecutionHistoryItem
         {
             Timestamp = DateTime.Now,
-            Step = "Unduh Stream2 (H-1)",
+            Step = "Stream2 (Unduh & Unggah Hosting)",
             FileName = streamResult.DownloadedFiles.Count > 0 ? string.Join(", ", streamResult.DownloadedFiles.Select(Path.GetFileName)) : "-",
             RecordCount = streamResult.TotalDownloaded,
-            Status = streamResult.Success ? BotStatus.Success : BotStatus.Error,
-            Message = streamResult.Message
+            Status = streamResult.Success ? (CurrentStatus == BotStatus.Warning ? BotStatus.Warning : BotStatus.Success) : BotStatus.Error,
+            Message = streamResult.Success ? StatusMessage : streamResult.Message
         });
     }
 

@@ -120,6 +120,88 @@ public class SftpTransferService : ITransferService
         });
     }
 
+    public async Task<TransferResult> UploadFileAsync(
+        string localFilePath,
+        WebDarsanaConfig config,
+        Action<string>? statusCallback = null)
+    {
+        return await Task.Run(() =>
+        {
+            var result = new TransferResult
+            {
+                ProtocolUsed = "SFTP"
+            };
+
+            var host = (config.Host ?? string.Empty).Trim();
+            int port = config.Port > 0 ? config.Port : 22;
+            var username = (config.Username ?? string.Empty).Trim();
+            var password = (config.EncryptedPasswordOrToken ?? string.Empty).Trim();
+            var remotePath = (config.RemoteStagingPath ?? string.Empty).Trim();
+
+            if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+            {
+                result.Success = false;
+                result.Message = "Konfigurasi SFTP belum lengkap (Host, Username, atau Password kosong).";
+                return result;
+            }
+
+            if (!File.Exists(localFilePath))
+            {
+                result.Success = false;
+                result.Message = $"File lokal tidak ditemukan: {localFilePath}";
+                return result;
+            }
+
+            if (string.IsNullOrWhiteSpace(remotePath))
+            {
+                remotePath = "storage/app/sap/incoming";
+            }
+
+            var fileName = Path.GetFileName(localFilePath);
+            var fileInfo = new FileInfo(localFilePath);
+
+            try
+            {
+                statusCallback?.Invoke($"Menghubungkan ke server SFTP {host}:{port}...");
+                using var client = CreateSftpClient(host, port, username, password);
+                client.Connect();
+
+                if (!client.IsConnected)
+                {
+                    result.Success = false;
+                    result.Message = "Tidak dapat terhubung ke server SFTP cPanel.";
+                    return result;
+                }
+
+                statusCallback?.Invoke($"Memeriksa folder tujuan remote: {remotePath}...");
+                EnsureRemoteDirectoryExists(client, remotePath);
+
+                var remoteFilePath = remotePath.TrimEnd('/') + "/" + fileName;
+
+                statusCallback?.Invoke($"Mengunggah {fileName} ({fileInfo.Length:N0} bytes) via SFTP...");
+
+                using (var fs = new FileStream(localFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                {
+                    client.UploadFile(fs, remoteFilePath, canOverride: true);
+                }
+
+                result.ArchivedFilePath = ArchiveLocalCsvFile(localFilePath);
+                result.Success = true;
+                result.Message = $"File {fileName} ({fileInfo.Length:N0} bytes) berhasil diunggah via SFTP ke: {remoteFilePath}";
+
+                statusCallback?.Invoke($"Unggah SFTP sukses: {fileName}");
+                client.Disconnect();
+                return result;
+            }
+            catch (Exception ex)
+            {
+                result.Success = false;
+                result.Message = $"Gagal unggah {fileName} via SFTP: {ex.Message}";
+                return result;
+            }
+        });
+    }
+
     private static SftpClient CreateSftpClient(string host, int port, string username, string password)
     {
         var connInfo = new ConnectionInfo(

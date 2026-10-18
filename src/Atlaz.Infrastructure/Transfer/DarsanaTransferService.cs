@@ -328,5 +328,24 @@ public class DarsanaTransferService : ITransferService
         var clean = input.Replace("\r", " ").Replace("\n", " ").Trim();
         return clean.Length <= maxLen ? clean : clean[..maxLen] + "...";
     }
+
+    public async Task<TransferResult> UploadFileAsync(
+        string localFilePath,
+        WebDarsanaConfig config,
+        Action<string>? statusCallback = null)
+    {
+        return await Task.Run(() =>
+        {
+            var result = new TransferResult
+            {
+                ProtocolUsed = "API"
+            };
+
+            result.Success = false;
+            result.Message = "Unggah file Excel Stream2 langsung melalui API belum didukung. Silakan gunakan protokol FTP (Port 21) atau SFTP (Port 22) di Pengaturan.";
+            return result;
+        });
+    }
 }
+
 

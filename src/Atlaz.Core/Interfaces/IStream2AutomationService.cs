@@ -25,3 +25,4 @@ public interface IStream2AutomationService
         Action<string>? statusCallback = null,
         CancellationToken ct = default);
 }
+
