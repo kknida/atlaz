@@ -162,12 +162,12 @@
                                                 FontSize="12" FontWeight="SemiBold" 
                                                 Padding="12,7" Margin="0,0,8,0" BorderThickness="0" Cursor="Hand"
                                                 ToolTip="Hanya mengunduh dari SAP dan memvalidasi file CSV lokal. Tidak mengirim ke server."/>
-                                        <Button Content="🚀  2. Uji Tahap 4 Saja (Upload CSV Terakhir)" 
+                                        <Button Content="🚀  2. Uji Upload Hosting (CSV SAP + 3 XLSX Stream2)" 
                                                 Command="{Binding RunPhase4OnlyCommand}"
                                                 Background="#059669" Foreground="#FFFFFF" 
                                                 FontSize="12" FontWeight="SemiBold" 
                                                 Padding="12,7" BorderThickness="0" Cursor="Hand"
-                                                ToolTip="Menguji upload file CSV terakhir yang sudah ada di lokal ke cPanel hosting. Tanpa login SAP!"/>
+                                                ToolTip="Mengunggah file CSV SAP terakhir dan 3 file Excel Stream2 (Terminal, Enroute, Movement) yang ada di folder lokal langsung ke server hosting."/>
                                     </StackPanel>
 
                                     <!-- Tombol Uji Coba Modul Ekstraksi STREAM2 (Portal Web AirNav - Periode H-1) -->

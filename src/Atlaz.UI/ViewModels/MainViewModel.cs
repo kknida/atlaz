@@ -319,9 +319,9 @@ public partial class MainViewModel : ObservableObject
         CurrentStatus = BotStatus.Running;
         StatusMessage = $"Menjalankan Uji Tahap 4 Saja menggunakan file lokal: {latestCsv.Name} (Tanpa login SAP)...";
 
-        // Tahap 3: Validasi file lokal terlebih dahulu
+        // Tahap 3: Validasi file lokal CSV terlebih dahulu
         CurrentPhase = 3;
-        ProgressValue = 50;
+        ProgressValue = 30;
         PhaseStatusText = $"Membaca & memvalidasi file lokal: {latestCsv.Name}...";
 
         var validationResult = await _csvValidationService.ValidateAndParseZfm001CsvAsync(
@@ -336,44 +336,118 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        // Tahap 4: Upload ke hosting
+        // Tahap 4: Upload ke hosting (CSV SAP + 3 File XLSX Stream2)
         CurrentPhase = 4;
-        ProgressValue = 85;
+        ProgressValue = 60;
         var service = GetActiveTransferService();
         var protocolName = DarsanaConfig.IsSftp ? (DarsanaConfig.Port == 21 ? "FTP (Port 21)" : "SFTP (Port 22)") : "API";
 
-        PhaseStatusText = $"Tahap 4: Mengunggah {validationResult.FileName} via {protocolName}...";
+        PhaseStatusText = $"Mengunggah CSV SAP ({validationResult.FileName}) via {protocolName}...";
 
         var transferResult = await service.UploadToWebDarsanaAsync(
             validationResult,
             DarsanaConfig,
             statusCallback: (msg) => { PhaseStatusText = msg; });
 
-        ProgressValue = 100;
-        IsRunning = false;
+        var uploadedFilesList = new List<string>();
+        var uploadErrors = new List<string>();
 
         if (transferResult.Success)
         {
+            uploadedFilesList.Add(validationResult.FileName);
+        }
+        else
+        {
+            uploadErrors.Add($"CSV SAP: {transferResult.Message}");
+        }
+
+        // Cari 3 file Excel Stream2 terbaru dari folder exports/stream2
+        var stream2Dir = Path.Combine(outputDir, "stream2");
+        var stream2Files = new List<FileInfo>();
+
+        if (Directory.Exists(stream2Dir))
+        {
+            // Cari dari subdirektori tanggal (yyyyMMdd) terbaru
+            var latestDateDir = Directory.GetDirectories(stream2Dir)
+                .Select(d => new DirectoryInfo(d))
+                .OrderByDescending(d => d.Name)
+                .FirstOrDefault();
+
+            if (latestDateDir != null && Directory.Exists(latestDateDir.FullName))
+            {
+                stream2Files = Directory.GetFiles(latestDateDir.FullName, "*.xlsx")
+                    .Concat(Directory.GetFiles(latestDateDir.FullName, "*.xls"))
+                    .Select(f => new FileInfo(f))
+                    .ToList();
+            }
+
+            // Fallback juga cari langsung di root folder stream2 jika ada
+            if (stream2Files.Count == 0)
+            {
+                stream2Files = Directory.GetFiles(stream2Dir, "*.xlsx", SearchOption.AllDirectories)
+                    .Concat(Directory.GetFiles(stream2Dir, "*.xls", SearchOption.AllDirectories))
+                    .Select(f => new FileInfo(f))
+                    .OrderByDescending(f => f.LastWriteTime)
+                    .Take(3)
+                    .ToList();
+            }
+        }
+
+        if (stream2Files.Count > 0)
+        {
+            ProgressValue = 75;
+            PhaseStatusText = $"Mengunggah {stream2Files.Count} file Excel Stream2 ke hosting...";
+
+            foreach (var sFile in stream2Files)
+            {
+                PhaseStatusText = $"Mengunggah {sFile.Name} via {protocolName}...";
+                var upRes = await service.UploadFileAsync(sFile.FullName, DarsanaConfig, (msg) => PhaseStatusText = msg);
+                if (upRes.Success)
+                {
+                    uploadedFilesList.Add(sFile.Name);
+                }
+                else
+                {
+                    uploadErrors.Add($"{sFile.Name}: {upRes.Message}");
+                }
+            }
+        }
+        else
+        {
+            uploadErrors.Add("File Excel Stream2 belum ada di folder exports/stream2 (Jalankan Tombol 3 terlebih dahulu untuk unduh)");
+        }
+
+        ProgressValue = 100;
+        IsRunning = false;
+        LastRunTime = DateTime.Now.ToString("dd MMM yyyy, HH:mm:ss");
+
+        if (uploadErrors.Count == 0)
+        {
             CurrentStatus = BotStatus.Success;
-            LastRunTime = DateTime.Now.ToString("dd MMM yyyy, HH:mm:ss");
-            StatusMessage = $"Uji Tahap 4 SUKSES! File berhasil masuk ke server hosting: {transferResult.Message}";
-            PhaseStatusText = $"Upload Selesai: {validationResult.FileName} berhasil diunggah.";
+            StatusMessage = $"Uji Upload SUKSES! {uploadedFilesList.Count} file (1 CSV SAP + {stream2Files.Count} XLSX Stream2) berhasil diunggah ke hosting.";
+            PhaseStatusText = $"Upload Selesai: {string.Join(", ", uploadedFilesList)}";
+        }
+        else if (uploadedFilesList.Count > 0)
+        {
+            CurrentStatus = BotStatus.Warning;
+            StatusMessage = $"Upload Sebagian Berhasil ({uploadedFilesList.Count} file): {string.Join(", ", uploadedFilesList)}. Catatan: {string.Join("; ", uploadErrors)}";
+            PhaseStatusText = $"Upload sebagian sukses ({uploadedFilesList.Count} file terunggah).";
         }
         else
         {
             CurrentStatus = BotStatus.Error;
-            StatusMessage = $"Tahap 4 Gagal: {transferResult.Message}";
-            PhaseStatusText = $"Gagal unggah ke server hosting.";
+            StatusMessage = $"Gagal unggah ke server hosting: {string.Join("; ", uploadErrors)}";
+            PhaseStatusText = "Gagal unggah ke server hosting.";
         }
 
         ExecutionHistory.Insert(0, new ExecutionHistoryItem
         {
             Timestamp = DateTime.Now,
-            Step = $"Uji Tahap 4 ({protocolName})",
-            FileName = validationResult.FileName,
+            Step = $"Uji Upload Hosting (CSV + Stream2)",
+            FileName = string.Join(", ", uploadedFilesList.Count > 0 ? uploadedFilesList : new List<string> { validationResult.FileName }),
             RecordCount = validationResult.RowsImported,
-            Status = transferResult.Success ? BotStatus.Success : BotStatus.Error,
-            Message = transferResult.Message
+            Status = CurrentStatus,
+            Message = StatusMessage
         });
     }
 
