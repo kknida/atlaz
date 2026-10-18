@@ -194,7 +194,7 @@ public class SapGuiAutomationService : ISapAutomationService
                 }
 
 
-                // 3. Akses atau Buka Koneksi SAP
+                // 3. Akses atau Buka Koneksi & Sesi SAP (Smart Multi-Connection Scanner)
                 var appType = sapGuiApp.GetType();
                 var appChildren = appType.InvokeMember("Children", System.Reflection.BindingFlags.GetProperty, null, sapGuiApp, null);
                 var appChildrenCount = 0;
@@ -207,16 +207,47 @@ public class SapGuiAutomationService : ISapAutomationService
                     catch { }
                 }
 
+                // Cek apakah sudah ada koneksi dan sesi yang terbuka di layar pengguna
                 if (appChildrenCount > 0)
                 {
-                    // Gunakan koneksi yang sudah terbuka
-                    statusCallback?.Invoke("Menggunakan koneksi SAP yang sedang terbuka...");
-                    connection = appChildren!.GetType().InvokeMember("Item", System.Reflection.BindingFlags.InvokeMethod, null, appChildren, new object[] { 0 });
+                    statusCallback?.Invoke($"Memeriksa {appChildrenCount} koneksi SAP yang sedang terbuka...");
+                    for (int c = 0; c < appChildrenCount; c++)
+                    {
+                        try
+                        {
+                            var candConn = appChildren!.GetType().InvokeMember("Item", System.Reflection.BindingFlags.InvokeMethod, null, appChildren, new object[] { c });
+                            if (candConn == null) continue;
+
+                            var candConnType = candConn.GetType();
+                            var candSessions = candConnType.InvokeMember("Children", System.Reflection.BindingFlags.GetProperty, null, candConn, null);
+                            if (candSessions == null) continue;
+
+                            int sCount = (int)candSessions.GetType().InvokeMember("Count", System.Reflection.BindingFlags.GetProperty, null, candSessions, null)!;
+                            if (sCount > 0)
+                            {
+                                for (int s = 0; s < sCount; s++)
+                                {
+                                    var candSession = candSessions.GetType().InvokeMember("Item", System.Reflection.BindingFlags.InvokeMethod, null, candSessions, new object[] { s });
+                                    if (candSession != null)
+                                    {
+                                        connection = candConn;
+                                        session = candSession;
+                                        statusCallback?.Invoke($"Menggunakan sesi SAP aktif (Koneksi #{c + 1}, Sesi #{s + 1})...");
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        catch { }
+
+                        if (session != null) break;
+                    }
                 }
-                else
+
+                // Jika belum ada sesi aktif, coba buka koneksi baru berdasarkan SystemId yang dikonfigurasi
+                if (session == null)
                 {
-                    // Buka koneksi baru sesuai nama server/deskripsi di SAP Logon
-                    statusCallback?.Invoke($"Membuka koneksi ke sistem SAP: '{systemId}'...");
+                    statusCallback?.Invoke($"Tidak ada sesi aktif. Membuka koneksi baru ke: '{systemId}'...");
                     try
                     {
                         connection = appType.InvokeMember("OpenConnection", System.Reflection.BindingFlags.InvokeMethod, null, sapGuiApp, new object[] { systemId, true });
@@ -224,26 +255,43 @@ public class SapGuiAutomationService : ISapAutomationService
                     catch (Exception exOpen)
                     {
                         var inner = exOpen.InnerException?.Message ?? exOpen.Message;
-                        throw new InvalidOperationException($"Gagal membuka koneksi SAP dengan System ID / Nama Server '{systemId}'. Pastikan nama ini persis sama dengan nama entri di SAP Logon. Detail: {inner}");
+                        throw new InvalidOperationException($"Gagal membuka koneksi SAP '{systemId}'. Pastikan nama ini persis sama dengan nama entri di daftar SAP Logon Anda.\nDetail: {inner}");
+                    }
+
+                    if (connection == null)
+                    {
+                        throw new InvalidOperationException($"Koneksi ke SAP Server '{systemId}' tidak ditemukan. Pastikan nama koneksi sesuai dengan entri di SAP Logon.");
+                    }
+
+                    // Polling tunggu jendela sesi selesai render
+                    var connType = connection.GetType();
+                    for (int waitAttempt = 1; waitAttempt <= 12; waitAttempt++)
+                    {
+                        Thread.Sleep(800);
+                        try
+                        {
+                            var children = connType.InvokeMember("Children", System.Reflection.BindingFlags.GetProperty, null, connection, null);
+                            if (children != null)
+                            {
+                                int cCount = (int)children.GetType().InvokeMember("Count", System.Reflection.BindingFlags.GetProperty, null, children, null)!;
+                                if (cCount > 0)
+                                {
+                                    session = children.GetType().InvokeMember("Item", System.Reflection.BindingFlags.InvokeMethod, null, children, new object[] { 0 });
+                                    if (session != null) break;
+                                }
+                            }
+                        }
+                        catch { }
                     }
                 }
 
-                if (connection == null)
-                {
-                    throw new InvalidOperationException($"Koneksi ke SAP Server '{systemId}' tidak ditemukan atau gagal dibuat. Pastikan nama koneksi sesuai dengan entri di SAP Logon.");
-                }
-
-                // Berikan jeda sejenak agar jendela SAP GUI selesai render
-                Thread.Sleep(1500);
-
-                var connType = connection.GetType();
-                var children = connType.InvokeMember("Children", System.Reflection.BindingFlags.GetProperty, null, connection, null);
-                var childrenType = children!.GetType();
-                session = childrenType.InvokeMember("Item", System.Reflection.BindingFlags.InvokeMethod, null, children, new object[] { 0 });
-
                 if (session == null)
                 {
-                    throw new InvalidOperationException("Gagal memperoleh sesi SAP GUI yang aktif dari koneksi yang dipilih.");
+                    throw new InvalidOperationException($"Tidak dapat mendeteksi sesi SAP GUI aktif.\n\n" +
+                        "Langkah verifikasi:\n" +
+                        "1. Jika Anda sudah login ke SAP secara manual, pastikan jendela SAP tidak terminimize/terblokir popup modal dialog.\n" +
+                        "2. Buka SAP GUI -> Options -> Accessibility & Scripting -> Scripting -> Pastikan 'Enable scripting' telah dicentang dan HAPUS centang pada 'Notify when a script attaches'.\n" +
+                        "3. Pastikan aplikasi Atlaz dan SAP GUI berjalan pada tingkat hak akses (privilege) yang sama (keduanya Normal User, atau keduanya Run as Administrator).");
                 }
 
                 var sessionType = session.GetType();
