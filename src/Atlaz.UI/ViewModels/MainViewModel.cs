@@ -732,21 +732,88 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
+        // =========================================================================
+        // TAHAP 5 (STREAM2): Unduh 3 Laporan Stream2 (H-1) & Upload ke Hosting
+        // =========================================================================
+        var stream2UploadedFiles = new List<string>();
+        var stream2Errors = new List<string>();
+
+        try
+        {
+            PhaseStatusText = "Tahap 5: Menghubungi Web Stream2 AirNav (Terminal, Enroute, Movement)...";
+            var targetDate = DateTime.Today.AddDays(-Stream2Config.TargetDaysAgo);
+            var stream2OutDir = Path.Combine(outputDir, "stream2", targetDate.ToString("yyyyMMdd"));
+
+            var streamResult = await _stream2AutomationService.DownloadReportsAsync(
+                baseUrl: Stream2Config.Url,
+                username: Stream2Config.Username,
+                password: Stream2Config.EncryptedPassword,
+                targetDate: targetDate,
+                outputDirectory: stream2OutDir,
+                downloadTerminal: Stream2Config.DownloadTerminalCharge,
+                downloadEnroute: Stream2Config.DownloadEnrouteCharge,
+                downloadMovement: Stream2Config.DownloadMovement,
+                statusCallback: (msg) => { PhaseStatusText = $"Stream2: {msg}"; });
+
+            if (streamResult.Success && streamResult.DownloadedFiles.Count > 0)
+            {
+                PhaseStatusText = $"Mengunggah {streamResult.DownloadedFiles.Count} file Stream2 ke server hosting...";
+                foreach (var sFile in streamResult.DownloadedFiles)
+                {
+                    var fName = Path.GetFileName(sFile);
+                    PhaseStatusText = $"Mengunggah {fName} ke server hosting...";
+                    var upRes = await transferService.UploadFileAsync(sFile, DarsanaConfig, (msg) => PhaseStatusText = msg);
+                    if (upRes.Success)
+                    {
+                        stream2UploadedFiles.Add(fName);
+                    }
+                    else
+                    {
+                        stream2Errors.Add($"{fName}: {upRes.Message}");
+                    }
+                }
+            }
+            else if (!streamResult.Success)
+            {
+                stream2Errors.Add($"Stream2: {streamResult.Message}");
+            }
+        }
+        catch (Exception ex)
+        {
+            stream2Errors.Add($"Stream2 Exception: {ex.Message}");
+        }
+
         ProgressValue = 100;
-        CurrentStatus = BotStatus.Success;
-        LastRunTime = DateTime.Now.ToString("dd MMM yyyy, HH:mm:ss");
-        StatusMessage = $"Sinkronisasi 4-Tahap Selesai! {transferResult.RowsImportedOnServer} baris berhasil masuk ke Web Darsana.";
-        PhaseStatusText = $"Sukses Penuh: {validationResult.FileName} ({transferResult.RowsImportedOnServer} baris) -> Terkirim & Diarsipkan.";
         IsRunning = false;
+        LastRunTime = DateTime.Now.ToString("dd MMM yyyy, HH:mm:ss");
+
+        if (stream2Errors.Count == 0 && stream2UploadedFiles.Count > 0)
+        {
+            CurrentStatus = BotStatus.Success;
+            StatusMessage = $"Sinkronisasi Penuh SUKSES! SAP ({transferResult.RowsImportedOnServer} baris) & {stream2UploadedFiles.Count} file Stream2 berhasil masuk ke server hosting.";
+            PhaseStatusText = $"Sukses Total: {validationResult.FileName} + {string.Join(", ", stream2UploadedFiles)} terunggah.";
+        }
+        else if (stream2Errors.Count > 0)
+        {
+            CurrentStatus = BotStatus.Warning;
+            StatusMessage = $"SAP Sukses ({transferResult.RowsImportedOnServer} baris), namun Stream2 ada catatan: {string.Join("; ", stream2Errors)}";
+            PhaseStatusText = $"SAP terunggah. Stream2: {string.Join(", ", stream2Errors)}";
+        }
+        else
+        {
+            CurrentStatus = BotStatus.Success;
+            StatusMessage = $"Sinkronisasi SAP Selesai ({transferResult.RowsImportedOnServer} baris).";
+            PhaseStatusText = $"Sukses: {validationResult.FileName} terunggah.";
+        }
 
         ExecutionHistory.Insert(0, new ExecutionHistoryItem
         {
             Timestamp = DateTime.Now,
-            Step = "Full Sync (Tahap 1-4)",
-            FileName = validationResult.FileName,
+            Step = "Full Sync (SAP + Stream2)",
+            FileName = validationResult.FileName + (stream2UploadedFiles.Count > 0 ? $" + {stream2UploadedFiles.Count} XLSX Stream2" : ""),
             RecordCount = transferResult.RowsImportedOnServer,
-            Status = BotStatus.Success,
-            Message = $"{transferResult.Message} | SHA-256: {validationResult.Sha256Checksum[..10]}..."
+            Status = CurrentStatus,
+            Message = StatusMessage
         });
     }
 
