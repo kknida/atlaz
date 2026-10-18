@@ -532,9 +532,24 @@ Untuk memfasilitasi pengujian bertahap tanpa mengganggu jadwal otomasi utama:
    - **Tombol 1 (Amber):** `📥 1. Uji Tahap 1 s.d 3 (SAP ➔ CSV Saja)`
    - **Tombol 2 (Emerald):** `🚀 2. Uji Tahap 4 Saja (Upload CSV Terakhir)`
    - **Tombol 3 (Purple):** `🌐 3. Uji Unduh Stream2 (H-1: Terminal, Enroute & Movement)`
-2. **Kebijakan Penyembunyian (*Auto-Hide Policy*):**
-   - Seluruh baris tombol pengujian (Tombol 1, 2, dan 3) diikat ke properti MVVM `IsTestControlsVisible` (tipe `bool`).
-   - Selama masa pengembangan dan pengujian, `IsTestControlsVisible = true`.
-   - Setelah masa uji coba selesai dan seluruh alur terbukti stabil di produksi, properti ini diset menjadi `false` (atau disembunyikan via konfigurasi) sehingga tampilan Dashboard kembali bersih hanya menyisakan tombol operasional utama `▶ RUN MANUAL SEKARANG`.
+### 10.8 Alur Otomatis Unggah File Stream2 ke Hosting Server
+Setelah bot berhasil mengunduh ketiga file Excel Stream2 ke direktori lokal:
+1. **Pendeteksian Jalur Transfer Aktif:**
+   Bot memanggil `GetActiveTransferService()` yang memanfaatkan kredensial FTP cPanel (`FluentFTP` di Port 21) atau SFTP (`SSH.NET` di Port 22) untuk melewati proteksi WAF Imunify360.
+2. **Iterasi Unggah Setiap Laporan:**
+   Ketiga file Excel yang baru diunduh:
+   - `TerminalCharge_{yyyyMMdd}.xlsx`
+   - `EnrouteCharge_{yyyyMMdd}.xlsx`
+   - `Movement_{yyyyMMdd}.xlsx`
+   diunggah langsung ke remote directory hosting: `darsana/storage/app/sap/incoming/` (atau root FTP `atlaz_bot`).
+3. **Penyimpanan Status & Log Eksekusi:**
+   Setiap hasil unggah dicatat pada tabel riwayat eksekusi UI dan log status bot.
+
+### 10.9 Pemrosesan Otomatis di Web Darsana (`sap:import`)
+1. **Service:** `app/Services/Stream2ImportService.php` membaca format Excel Stream2:
+   - **Terminal Charge:** Membaca header dan mengisi tabel `terminal_uploads` serta rincian `terminal_data`. Otomatis mengonversi tarif USD ke IDR jika terdeteksi mata uang USD.
+   - **Enroute Charge:** Membaca header dan mengisi `enroute_uploads` serta rincian `enroute_data`.
+   - **Movement:** Membaca header dan mengisi `traffic_uploads` serta rincian `traffic_data`.
+2. **Integrasi CLI Command:** `php artisan sap:import` mendeteksi prefix nama file Stream2 (`TerminalCharge_`, `EnrouteCharge_`, `Movement_`) di folder `storage/app/sap/incoming/` dan memprosesnya secara instan lalu mengarsipkan file ke `storage/app/sap/archive/`.
 
 
