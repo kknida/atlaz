@@ -164,6 +164,9 @@ public partial class Stream2Config : ObservableObject
     private int _targetDaysAgo = 1; // H-1 (Hari Sebelumnya)
 
     [ObservableProperty]
+    private string _branchCode = "WARR";
+
+    [ObservableProperty]
     private bool _downloadTerminalCharge = true;
 
     [ObservableProperty]

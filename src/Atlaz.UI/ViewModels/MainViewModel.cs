@@ -424,7 +424,7 @@ public partial class MainViewModel : ObservableObject
         if (uploadErrors.Count == 0)
         {
             CurrentStatus = BotStatus.Success;
-            StatusMessage = $"Uji Upload SUKSES! {uploadedFilesList.Count} file (1 CSV SAP + {stream2Files.Count} XLSX Stream2) berhasil diunggah ke hosting.";
+            StatusMessage = $"Uji Upload SUKSES! {uploadedFilesList.Count} file (1 CSV SAP + {stream2Files.Count} Excel Stream2) berhasil diunggah ke hosting.";
             PhaseStatusText = $"Upload Selesai: {string.Join(", ", uploadedFilesList)}";
         }
         else if (uploadedFilesList.Count > 0)
@@ -476,6 +476,7 @@ public partial class MainViewModel : ObservableObject
             password: Stream2Config.EncryptedPassword,
             targetDate: targetDate,
             outputDirectory: outputDir,
+            branchCode: Stream2Config.BranchCode,
             downloadTerminal: Stream2Config.DownloadTerminalCharge,
             downloadEnroute: Stream2Config.DownloadEnrouteCharge,
             downloadMovement: Stream2Config.DownloadMovement,
@@ -750,6 +751,7 @@ public partial class MainViewModel : ObservableObject
                 password: Stream2Config.EncryptedPassword,
                 targetDate: targetDate,
                 outputDirectory: stream2OutDir,
+                branchCode: Stream2Config.BranchCode,
                 downloadTerminal: Stream2Config.DownloadTerminalCharge,
                 downloadEnroute: Stream2Config.DownloadEnrouteCharge,
                 downloadMovement: Stream2Config.DownloadMovement,

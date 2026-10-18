@@ -19,6 +19,7 @@ public interface IStream2AutomationService
         string password,
         DateTime targetDate,
         string outputDirectory,
+        string branchCode = "WARR",
         bool downloadTerminal = true,
         bool downloadEnroute = true,
         bool downloadMovement = true,

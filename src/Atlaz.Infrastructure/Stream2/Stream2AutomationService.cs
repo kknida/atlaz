@@ -12,6 +12,7 @@ public class Stream2AutomationService : IStream2AutomationService
         string password,
         DateTime targetDate,
         string outputDirectory,
+        string branchCode = "WARR",
         bool downloadTerminal = true,
         bool downloadEnroute = true,
         bool downloadMovement = true,
@@ -41,7 +42,7 @@ public class Stream2AutomationService : IStream2AutomationService
 
         try
         {
-            statusCallback?.Invoke($"Membuka halaman portal {baseUrl}...");
+            statusCallback?.Invoke($"Membuka portal {baseUrl}...");
 
             // 1. Ambil halaman awal / login untuk session cookie awal
             var initialResponse = await client.GetAsync("/", ct);
@@ -50,7 +51,6 @@ public class Stream2AutomationService : IStream2AutomationService
             statusCallback?.Invoke($"Melakukan login sebagai {username}...");
 
             // Form login post payload (CodeIgniter umum menggunakan POST ke /index.php/login, /index.php/auth/login, atau root /)
-            // Deteksi form action dari initialHtml bila ada
             string loginEndpoint = "/index.php/login";
             var actionMatch = Regex.Match(initialHtml, @"<form[^>]+action=[""']([^""']+)[""']", RegexOptions.IgnoreCase);
             if (actionMatch.Success)
@@ -79,24 +79,27 @@ public class Stream2AutomationService : IStream2AutomationService
             var loginResponse = await client.PostAsync(loginEndpoint, postContent, ct);
             var loginHtml = await loginResponse.Content.ReadAsStringAsync(ct);
 
-            // Verifikasi apakah berhasil login (biasanya redirect ke dashboard atau ada teks logout / username)
-            statusCallback?.Invoke("Login berhasil dikonfirmasi. Memulai penarikan 3 laporan H-1...");
+            statusCallback?.Invoke($"Login terkonfirmasi. Mengunduh laporan H-1 cabang {branchCode}...");
 
-            // 2. Unduh Laporan 1: Data Terminal Charge
-            // https://stream2.airnavindonesia.co.id/index.php/report/Rdatatnc/exportdata?startdate=YYYY-MM-DD&enddate=YYYY-MM-DD&selectcabang=
+            // 2. Unduh Laporan 1: Data Terminal Charge (.xls)
+            // https://stream2.airnavindonesia.co.id/index.php/report/Rdatatnc/exportdata?startdate=YYYY-MM-DD&enddate=YYYY-MM-DD&selectcabang=WARR
             if (downloadTerminal)
             {
                 try
                 {
                     statusCallback?.Invoke($"Mengunduh Data Terminal Charge ({dateStr})...");
-                    var tncUrl = $"/index.php/report/Rdatatnc/exportdata?startdate={dateStr}&enddate={dateStr}&selectcabang=";
-                    var tncFile = Path.Combine(outputDirectory, $"TerminalCharge_{targetDate:yyyyMMdd}.xlsx");
+                    var tncUrl = $"/index.php/report/Rdatatnc/exportdata?startdate={dateStr}&enddate={dateStr}&selectcabang={Uri.EscapeDataString(branchCode)}";
+                    var tncFile = Path.Combine(outputDirectory, $"TerminalCharge_{targetDate:yyyyMMdd}.xls");
                     
-                    var downloaded = await DownloadFileAsync(client, tncUrl, tncFile, ct);
+                    var downloaded = await DownloadReportFileAsync(client, tncUrl, tncFile, new[] { "Terminal", "example1", "Aircraft ID" }, ct);
                     if (downloaded)
                     {
                         result.DownloadedFiles.Add(tncFile);
                         statusCallback?.Invoke($"Data Terminal Charge tersimpan: {Path.GetFileName(tncFile)}");
+                    }
+                    else
+                    {
+                        statusCallback?.Invoke("Peringatan: Terminal Charge tidak valid atau sesi login ditolak.");
                     }
                 }
                 catch (Exception ex)
@@ -105,21 +108,25 @@ public class Stream2AutomationService : IStream2AutomationService
                 }
             }
 
-            // 3. Unduh Laporan 2: Data Enroute Charge
-            // https://stream2.airnavindonesia.co.id/index.php/report/Rdataenc/exportdata?start=YYYY-MM-DD&end=YYYY-MM-DD&selectcabang=
+            // 3. Unduh Laporan 2: Data Enroute Charge (.xls)
+            // https://stream2.airnavindonesia.co.id/index.php/report/Rdataenc/exportdata?start=YYYY-MM-DD&end=YYYY-MM-DD&selectcabang=WARR
             if (downloadEnroute)
             {
                 try
                 {
                     statusCallback?.Invoke($"Mengunduh Data Enroute Charge ({dateStr})...");
-                    var encUrl = $"/index.php/report/Rdataenc/exportdata?start={dateStr}&end={dateStr}&selectcabang=";
-                    var encFile = Path.Combine(outputDirectory, $"EnrouteCharge_{targetDate:yyyyMMdd}.xlsx");
+                    var encUrl = $"/index.php/report/Rdataenc/exportdata?start={dateStr}&end={dateStr}&selectcabang={Uri.EscapeDataString(branchCode)}";
+                    var encFile = Path.Combine(outputDirectory, $"EnrouteCharge_{targetDate:yyyyMMdd}.xls");
 
-                    var downloaded = await DownloadFileAsync(client, encUrl, encFile, ct);
+                    var downloaded = await DownloadReportFileAsync(client, encUrl, encFile, new[] { "Enroute", "example1", "Aircraft ID" }, ct);
                     if (downloaded)
                     {
                         result.DownloadedFiles.Add(encFile);
                         statusCallback?.Invoke($"Data Enroute Charge tersimpan: {Path.GetFileName(encFile)}");
+                    }
+                    else
+                    {
+                        statusCallback?.Invoke("Peringatan: Enroute Charge tidak valid atau sesi login ditolak.");
                     }
                 }
                 catch (Exception ex)
@@ -128,21 +135,25 @@ public class Stream2AutomationService : IStream2AutomationService
                 }
             }
 
-            // 4. Unduh Laporan 3: Data Movement
-            // https://stream2.airnavindonesia.co.id/index.php/report/Rdatamovcabang/exportdata?start=YYYY-MM-DD&end=YYYY-MM-DD&selectcabang=
+            // 4. Unduh Laporan 3: Data Movement (.xls)
+            // https://stream2.airnavindonesia.co.id/index.php/report/Rdatamovcabang/exportdata?start=YYYY-MM-DD&end=YYYY-MM-DD&selectcabang=WARR
             if (downloadMovement)
             {
                 try
                 {
                     statusCallback?.Invoke($"Mengunduh Data Movement ({dateStr})...");
-                    var movUrl = $"/index.php/report/Rdatamovcabang/exportdata?start={dateStr}&end={dateStr}&selectcabang=";
-                    var movFile = Path.Combine(outputDirectory, $"Movement_{targetDate:yyyyMMdd}.xlsx");
+                    var movUrl = $"/index.php/report/Rdatamovcabang/exportdata?start={dateStr}&end={dateStr}&selectcabang={Uri.EscapeDataString(branchCode)}";
+                    var movFile = Path.Combine(outputDirectory, $"Movement_{targetDate:yyyyMMdd}.xls");
 
-                    var downloaded = await DownloadFileAsync(client, movUrl, movFile, ct);
+                    var downloaded = await DownloadReportFileAsync(client, movUrl, movFile, new[] { "Movement", "ACID", "ADEP", "table" }, ct);
                     if (downloaded)
                     {
                         result.DownloadedFiles.Add(movFile);
                         statusCallback?.Invoke($"Data Movement tersimpan: {Path.GetFileName(movFile)}");
+                    }
+                    else
+                    {
+                        statusCallback?.Invoke("Peringatan: Movement tidak valid atau sesi login ditolak.");
                     }
                 }
                 catch (Exception ex)
@@ -154,7 +165,7 @@ public class Stream2AutomationService : IStream2AutomationService
             result.Success = result.TotalDownloaded > 0;
             result.Message = result.Success 
                 ? $"Berhasil mengunduh {result.TotalDownloaded} file report Stream2 ke folder lokal."
-                : "Tidak ada file yang berhasil diunduh. Pastikan PC terhubung ke jaringan kantor AirNav.";
+                : "Tidak ada file yang berhasil diunduh. Pastikan PC terhubung ke intranet AirNav dan kredensial Stream2 valid.";
         }
         catch (Exception ex)
         {
@@ -166,7 +177,12 @@ public class Stream2AutomationService : IStream2AutomationService
         return result;
     }
 
-    private static async Task<bool> DownloadFileAsync(HttpClient client, string requestUri, string destinationFilePath, CancellationToken ct)
+    private static async Task<bool> DownloadReportFileAsync(
+        HttpClient client, 
+        string requestUri, 
+        string destinationFilePath, 
+        string[] expectedKeywords, 
+        CancellationToken ct)
     {
         using var response = await client.GetAsync(requestUri, HttpCompletionOption.ResponseHeadersRead, ct);
         if (!response.IsSuccessStatusCode)
@@ -175,12 +191,38 @@ public class Stream2AutomationService : IStream2AutomationService
         }
 
         var contentBytes = await response.Content.ReadAsByteArrayAsync(ct);
-        if (contentBytes.Length == 0)
+        if (contentBytes.Length < 50)
         {
             return false;
         }
 
-        // Simpan file ke disk
+        // Validasi isi teks apakah benar HTML table report atau form login
+        var textPreview = System.Text.Encoding.UTF8.GetString(contentBytes, 0, Math.Min(contentBytes.Length, 4096));
+        
+        // Bila respons berisi login form, berarti autentikasi gagal / redirect
+        if (textPreview.Contains("name=\"password\"", StringComparison.OrdinalIgnoreCase) && 
+            textPreview.Contains("login", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        // Cek setidaknya ada salah satu expected keyword
+        bool keywordFound = false;
+        foreach (var kw in expectedKeywords)
+        {
+            if (textPreview.Contains(kw, StringComparison.OrdinalIgnoreCase))
+            {
+                keywordFound = true;
+                break;
+            }
+        }
+
+        if (!keywordFound && !textPreview.Contains("<table", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        // Simpan file ke disk (.xls)
         await File.WriteAllBytesAsync(destinationFilePath, contentBytes, ct);
         return true;
     }
