@@ -530,9 +530,26 @@ Untuk memfasilitasi pengujian bertahap tanpa mengganggu jadwal otomasi utama:
 1. **Penempatan Tombol di UI:**
    Ditempatkan tepat di bawah tombol uji SAP Tahap 1-3 dan Tahap 4:
    - **Tombol 1 (Amber):** `📥 1. Uji Tahap 1 s.d 3 (SAP ➔ CSV Saja)`
-   - **Tombol 2 (Emerald):** `🚀 2. Uji Tahap 4 Saja (Upload CSV Terakhir)`
+   - **Tombol 2 (Emerald):** `🚀 2. Uji Upload Hosting (CSV SAP + 3 XLSX Stream2)`
    - **Tombol 3 (Purple):** `🌐 3. Uji Unduh Stream2 (H-1: Terminal, Enroute & Movement)`
-### 10.8 Alur Otomatis Unggah File Stream2 ke Hosting Server
+   - **Tombol Utama (Blue):** `▶ RUN MANUAL SEKARANG (Tahap 1-4 + Stream2)`
+
+### 10.8 Alur Sinkronisasi Penuh (Run Manual & Jadwal Rutin)
+Setiap kali tombol **RUN MANUAL** ditekan atau **Jadwal Eksekusi Otomatis** (Scheduler) terpicu pada jam operasional:
+1. **SAP GUI Automation (Tahap 1-3):**
+   - Login ke SAP GUI -> Buka `ZFM001` -> 2-Pass Seleksi -> Atur Spreadsheet -> Download Local File CSV -> Tutup otomatis viewer Excel -> Validasi format CSV & SHA-256.
+2. **Unggah Realisasi SAP ke Hosting (Tahap 4):**
+   - Unggah file CSV SAP via FTP (Port 21) / SFTP (Port 22) ke `darsana/storage/app/sap/incoming/`.
+3. **Ekstraksi Web Stream2 AirNav (Tahap 5):**
+   - Otomatis login ke portal `https://stream2.airnavindonesia.co.id/`.
+   - Mengunduh 3 laporan operasional periode $H-1$:
+     - Terminal Charge (`TerminalCharge_{yyyyMMdd}.xlsx`)
+     - Enroute Charge (`EnrouteCharge_{yyyyMMdd}.xlsx`)
+     - Movement Data (`Movement_{yyyyMMdd}.xlsx`)
+4. **Unggah File Stream2 ke Hosting:**
+   - Seluruh file Excel yang berhasil diunduh langsung diunggah via FTP/SFTP ke direktori incoming hosting yang sama.
+5. **Pemrosesan di Web Darsana:**
+   - Server menjalankan `php artisan sap:import` untuk memproses baik file CSV SAP maupun 3 file Excel Stream2 ke database MySQL secara bersamaan.
 Setelah bot berhasil mengunduh ketiga file Excel Stream2 ke direktori lokal:
 1. **Pendeteksian Jalur Transfer Aktif:**
    Bot memanggil `GetActiveTransferService()` yang memanfaatkan kredensial FTP cPanel (`FluentFTP` di Port 21) atau SFTP (`SSH.NET` di Port 22) untuk melewati proteksi WAF Imunify360.
