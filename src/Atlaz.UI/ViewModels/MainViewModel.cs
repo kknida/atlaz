@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Input;
 using Atlaz.Core.Interfaces;
 using Atlaz.Core.Models;
 using Atlaz.Infrastructure.Sap;
+using Atlaz.Infrastructure.Stream2;
 using Atlaz.Infrastructure.Transfer;
 using Atlaz.Infrastructure.Validation;
 
@@ -18,6 +19,7 @@ public partial class MainViewModel : ObservableObject
     private readonly ITransferService _darsanaApiService;
     private readonly ITransferService _sftpTransferService;
     private readonly ITransferService _ftpTransferService;
+    private readonly IStream2AutomationService _stream2AutomationService;
     private readonly string _configFilePath;
 
     [ObservableProperty]
@@ -80,6 +82,7 @@ public partial class MainViewModel : ObservableObject
         _darsanaApiService = new DarsanaTransferService();
         _sftpTransferService = new SftpTransferService();
         _ftpTransferService = new FtpTransferService();
+        _stream2AutomationService = new Stream2AutomationService();
 
         var appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Atlaz");
         Directory.CreateDirectory(appData);
@@ -375,7 +378,7 @@ public partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// TOMBOL 3: Uji coba Ekstraksi Web Portal STREAM2 AirNav (Terminal Charge, Enroute Charge, Movement) periode H-1.
+    /// TOMBOL 3: Ekstraksi Nyata Web Portal STREAM2 AirNav (Terminal Charge, Enroute Charge, Movement) periode H-1.
     /// Tombol ini dapat disembunyikan (IsTestControlsVisible = false) setelah masa uji coba selesai.
     /// </summary>
     [RelayCommand]
@@ -387,39 +390,52 @@ public partial class MainViewModel : ObservableObject
         CurrentStatus = BotStatus.Running;
 
         var targetDate = DateTime.Today.AddDays(-Stream2Config.TargetDaysAgo);
-        StatusMessage = $"Menjalankan Uji Coba Unduh Stream2 (H-1: {targetDate:dd MMM yyyy}) dari {Stream2Config.Url}...";
-
-        ProgressValue = 20;
-        PhaseStatusText = $"Stream2: Mempersiapkan otentikasi user {Stream2Config.Username} untuk report {targetDate:dd/MM/yyyy}...";
-        await Task.Delay(400);
+        StatusMessage = $"Menghubungi Stream2 (H-1: {targetDate:dd MMM yyyy}) dari {Stream2Config.Url}...";
+        ProgressValue = 15;
+        PhaseStatusText = $"Stream2: Membuka portal & login sebagai {Stream2Config.Username}...";
 
         var outputDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Atlaz", "exports", "stream2", targetDate.ToString("yyyyMMdd"));
-        Directory.CreateDirectory(outputDir);
 
-        ProgressValue = 45;
-        PhaseStatusText = $"Stream2: Menguji koneksi & navigasi portal {Stream2Config.Url} (Target: Terminal, Enroute & Movement)...";
-        await Task.Delay(500);
-
-        ProgressValue = 75;
-        PhaseStatusText = $"Stream2: Direktori lokal siap di: {outputDir}";
-        await Task.Delay(300);
+        var streamResult = await _stream2AutomationService.DownloadReportsAsync(
+            baseUrl: Stream2Config.Url,
+            username: Stream2Config.Username,
+            password: Stream2Config.EncryptedPassword,
+            targetDate: targetDate,
+            outputDirectory: outputDir,
+            downloadTerminal: Stream2Config.DownloadTerminalCharge,
+            downloadEnroute: Stream2Config.DownloadEnrouteCharge,
+            downloadMovement: Stream2Config.DownloadMovement,
+            statusCallback: (msg) =>
+            {
+                PhaseStatusText = msg;
+                if (ProgressValue < 90) ProgressValue += 15;
+            });
 
         ProgressValue = 100;
-        CurrentStatus = BotStatus.Success;
-        LastRunTime = DateTime.Now.ToString("dd MMM yyyy, HH:mm:ss");
-        StatusMessage = $"Uji Modul Stream2 Siap! Target H-1: {targetDate:dd/MM/yyyy} (User: {Stream2Config.Username}). Struktur engine scraping terdaftar.";
-        PhaseStatusText = $"Inisialisasi Stream2 Berhasil. Folder export lokal: exports\\stream2\\{targetDate:yyyyMMdd}";
-
         IsRunning = false;
+
+        if (streamResult.Success)
+        {
+            CurrentStatus = BotStatus.Success;
+            LastRunTime = DateTime.Now.ToString("dd MMM yyyy, HH:mm:ss");
+            StatusMessage = $"Unduh Stream2 SUKSES! {streamResult.TotalDownloaded} file berhasil diunduh ke: exports\\stream2\\{targetDate:yyyyMMdd}";
+            PhaseStatusText = $"Unduhan Selesai ({streamResult.TotalDownloaded} file): {string.Join(", ", streamResult.DownloadedFiles.Select(Path.GetFileName))}";
+        }
+        else
+        {
+            CurrentStatus = BotStatus.Error;
+            StatusMessage = $"Stream2 Gagal: {streamResult.Message}";
+            PhaseStatusText = "Gagal mengunduh laporan dari portal Stream2. Pastikan PC terhubung ke intranet AirNav.";
+        }
 
         ExecutionHistory.Insert(0, new ExecutionHistoryItem
         {
             Timestamp = DateTime.Now,
-            Step = "Uji Unduh Stream2 (H-1)",
-            FileName = $"stream2_{targetDate:yyyyMMdd}_H1",
-            RecordCount = 3, // 3 Report: Terminal Charge, Enroute Charge, Movement
-            Status = BotStatus.Success,
-            Message = $"Inisialisasi unduh report H-1 ({targetDate:dd-MM-yyyy}) sukses. Target: Terminal Charge, Enroute Charge, Movement. User: {Stream2Config.Username}"
+            Step = "Unduh Stream2 (H-1)",
+            FileName = streamResult.DownloadedFiles.Count > 0 ? string.Join(", ", streamResult.DownloadedFiles.Select(Path.GetFileName)) : "-",
+            RecordCount = streamResult.TotalDownloaded,
+            Status = streamResult.Success ? BotStatus.Success : BotStatus.Error,
+            Message = streamResult.Message
         });
     }
 
