@@ -567,181 +567,145 @@ public partial class MainViewModel : ObservableObject
         await Task.Delay(300);
 
         // =========================================================================
-        // TAHAP 2: Eksekusi Otomasi SAP GUI (ZFM001 -> CSV -> Close Excel -> Logout)
+        // TAHAP 2 s.d 4: Eksekusi Otomasi SAP GUI & Upload ke Hosting
         // =========================================================================
         CurrentPhase = 2;
-        ProgressValue = 45;
+        ProgressValue = 35;
         PhaseStatusText = "Tahap 2: Menghubungi SAP GUI -> Login -> ZFM001 -> Download CSV...";
 
         var outputDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Atlaz", "exports");
-
-        var sapResult = await _sapAutomationService.ExecuteZfm001DownloadAsync(
-            systemId: SapConfig.SystemId,
-            client: SapConfig.Client,
-            username: SapConfig.Username,
-            password: SapConfig.EncryptedPassword,
-            fmArea: SapConfig.FmArea,
-            budgetCategory: SapConfig.BudgetCategory,
-            version: SapConfig.Version,
-            fiscalYear: SapConfig.FiscalYear,
-            fromPeriod: SapConfig.FromPeriod,
-            toPeriod: SapConfig.ToPeriod,
-            fundsCenterFrom: SapConfig.FundsCenterFrom,
-            fundsCenterTo: SapConfig.FundsCenterTo,
-            commitmentItem: SapConfig.CommitmentItem,
-            outputDirectory: outputDir,
-            statusCallback: (msg) =>
-            {
-                PhaseStatusText = $"Tahap 2: {msg}";
-            });
-
-        if (!sapResult.Success)
-        {
-            CurrentStatus = BotStatus.Error;
-            StatusMessage = $"Tahap 2 Gagal: {sapResult.Message}";
-            PhaseStatusText = "Otomasi dihentikan pada Tahap 2 (SAP GUI).";
-            IsRunning = false;
-
-            ExecutionHistory.Insert(0, new ExecutionHistoryItem
-            {
-                Timestamp = DateTime.Now,
-                Step = "Tahap 2: SAP Automation",
-                FileName = "-",
-                RecordCount = 0,
-                Status = BotStatus.Error,
-                Message = sapResult.Message
-            });
-            return;
-        }
-
-        // =========================================================================
-        // TAHAP 3: Verifikasi Format Data CSV, Parsing Hirarki & Checksum SHA-256
-        // =========================================================================
-        CurrentPhase = 3;
-        ProgressValue = 75;
-        PhaseStatusText = "Tahap 3: Memvalidasi struktur kolom CSV ZFM001 & menghitung SHA-256...";
-
-        var validationResult = await _csvValidationService.ValidateAndParseZfm001CsvAsync(
-            sapResult.ExportedFilePath,
-            statusCallback: (msg) =>
-            {
-                PhaseStatusText = $"Tahap 3: {msg}";
-            });
-
-        if (!validationResult.IsValid)
-        {
-            CurrentStatus = BotStatus.Error;
-            StatusMessage = $"Tahap 3 Gagal (Format CSV Tidak Sesuai): {validationResult.Message}";
-            PhaseStatusText = "Pengiriman dibatalkan karena file CSV tidak lolos verifikasi Tahap 3.";
-            IsRunning = false;
-
-            ExecutionHistory.Insert(0, new ExecutionHistoryItem
-            {
-                Timestamp = DateTime.Now,
-                Step = "Tahap 3: Validasi CSV",
-                FileName = validationResult.FileName,
-                RecordCount = 0,
-                Status = BotStatus.Error,
-                Message = validationResult.Message
-            });
-            return;
-        }
-
-        // =========================================================================
-        // TAHAP 4: Upload Data ke Web Darsana (SFTP cPanel Bebas WAF / API)
-        // =========================================================================
-        CurrentPhase = 4;
-        ProgressValue = 90;
-
         ITransferService transferService = GetActiveTransferService();
         var protocolName = DarsanaConfig.IsSftp ? (DarsanaConfig.Port == 21 ? "FTP (Port 21)" : "SFTP (Port 22)") : "API";
 
-        if (DarsanaConfig.IsSftp)
+        bool sapSuccess = false;
+        string sapFileName = "-";
+        int sapRows = 0;
+        string? sapError = null;
+
+        try
         {
-            PhaseStatusText = $"Tahap 4: Mengunggah file CSV via {protocolName} cPanel (Bebas Imunify360)...";
+            var sapResult = await _sapAutomationService.ExecuteZfm001DownloadAsync(
+                systemId: SapConfig.SystemId,
+                client: SapConfig.Client,
+                username: SapConfig.Username,
+                password: SapConfig.EncryptedPassword,
+                fmArea: SapConfig.FmArea,
+                budgetCategory: SapConfig.BudgetCategory,
+                version: SapConfig.Version,
+                fiscalYear: SapConfig.FiscalYear,
+                fromPeriod: SapConfig.FromPeriod,
+                toPeriod: SapConfig.ToPeriod,
+                fundsCenterFrom: SapConfig.FundsCenterFrom,
+                fundsCenterTo: SapConfig.FundsCenterTo,
+                commitmentItem: SapConfig.CommitmentItem,
+                outputDirectory: outputDir,
+                statusCallback: (msg) => { PhaseStatusText = $"SAP: {msg}"; });
 
-            var host = DarsanaConfig.Host?.Trim();
-            var user = DarsanaConfig.Username?.Trim();
-            var pass = DarsanaConfig.EncryptedPasswordOrToken?.Trim();
-
-            if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(user) || string.IsNullOrWhiteSpace(pass))
+            if (!sapResult.Success)
             {
-                ProgressValue = 100;
-                CurrentStatus = BotStatus.Warning;
-                LastRunTime = DateTime.Now.ToString("dd MMM yyyy, HH:mm:ss");
-                StatusMessage = $"Tahap 1-3 Sukses ({validationResult.RowsImported} baris). Buka menu Konfigurasi Sistem dan isi Host, Username, & Password cPanel SFTP untuk mengunggah.";
-                PhaseStatusText = $"CSV Valid ({validationResult.RowsImported} baris). Menunggu kelengkapan akun SFTP cPanel.";
-                IsRunning = false;
-
+                sapError = $"Download SAP gagal: {sapResult.Message}";
                 ExecutionHistory.Insert(0, new ExecutionHistoryItem
                 {
                     Timestamp = DateTime.Now,
-                    Step = "Tahap 3: CSV Tervalidasi",
-                    FileName = validationResult.FileName,
-                    RecordCount = validationResult.RowsImported,
-                    Status = BotStatus.Warning,
-                    Message = $"{validationResult.Message} (Upload dilewati: Kredensial SFTP cPanel belum lengkap)"
+                    Step = "SAP Automation (Download)",
+                    FileName = "-",
+                    RecordCount = 0,
+                    Status = BotStatus.Error,
+                    Message = sapResult.Message
                 });
-                return;
+            }
+            else
+            {
+                CurrentPhase = 3;
+                ProgressValue = 50;
+                PhaseStatusText = "Tahap 3: Memvalidasi struktur kolom CSV ZFM001...";
+
+                var validationResult = await _csvValidationService.ValidateAndParseZfm001CsvAsync(
+                    sapResult.ExportedFilePath,
+                    statusCallback: (msg) => { PhaseStatusText = $"Validasi CSV: {msg}"; });
+
+                sapFileName = validationResult.FileName;
+                sapRows = validationResult.RowsImported;
+
+                if (!validationResult.IsValid)
+                {
+                    sapError = $"Validasi CSV SAP tidak sesuai: {validationResult.Message}";
+                    ExecutionHistory.Insert(0, new ExecutionHistoryItem
+                    {
+                        Timestamp = DateTime.Now,
+                        Step = "Validasi CSV SAP",
+                        FileName = validationResult.FileName,
+                        RecordCount = 0,
+                        Status = BotStatus.Error,
+                        Message = validationResult.Message
+                    });
+                }
+                else
+                {
+                    CurrentPhase = 4;
+                    ProgressValue = 65;
+                    PhaseStatusText = $"Tahap 4: Mengunggah CSV SAP via {protocolName}...";
+
+                    var transferResult = await transferService.UploadToWebDarsanaAsync(
+                        validationResult,
+                        DarsanaConfig,
+                        statusCallback: (msg) => { PhaseStatusText = $"Upload SAP: {msg}"; });
+
+                    if (!transferResult.Success)
+                    {
+                        sapError = $"Upload CSV SAP gagal: {transferResult.Message}";
+                        ExecutionHistory.Insert(0, new ExecutionHistoryItem
+                        {
+                            Timestamp = DateTime.Now,
+                            Step = "Upload CSV SAP",
+                            FileName = validationResult.FileName,
+                            RecordCount = validationResult.RowsImported,
+                            Status = BotStatus.Error,
+                            Message = transferResult.Message
+                        });
+                    }
+                    else
+                    {
+                        sapSuccess = true;
+                        ExecutionHistory.Insert(0, new ExecutionHistoryItem
+                        {
+                            Timestamp = DateTime.Now,
+                            Step = "Upload CSV SAP Sukses",
+                            FileName = validationResult.FileName,
+                            RecordCount = transferResult.RowsImportedOnServer,
+                            Status = BotStatus.Success,
+                            Message = $"Berhasil mengunggah CSV SAP ({transferResult.RowsImportedOnServer} baris) ke server."
+                        });
+                    }
+                }
             }
         }
-        else
+        catch (Exception ex)
         {
-            PhaseStatusText = "Tahap 4: Mengirim data tervalidasi via API Web Darsana...";
-            transferService = _darsanaApiService;
-
-            var activeToken = !string.IsNullOrWhiteSpace(DarsanaConfig.ApiToken)
-                ? DarsanaConfig.ApiToken.Trim()
-                : DarsanaConfig.EncryptedPasswordOrToken.Trim();
-
-            if (string.IsNullOrWhiteSpace(activeToken))
-            {
-                ProgressValue = 100;
-                CurrentStatus = BotStatus.Warning;
-                LastRunTime = DateTime.Now.ToString("dd MMM yyyy, HH:mm:ss");
-                StatusMessage = $"Tahap 1-3 Sukses ({validationResult.RowsImported} baris). Isi BOT_TOKEN di menu Pengaturan untuk mengaktifkan Upload API.";
-                PhaseStatusText = $"CSV Valid ({validationResult.RowsImported} baris). Menunggu BOT_TOKEN Web Darsana.";
-                IsRunning = false;
-                return;
-            }
-        }
-
-        var transferResult = await transferService.UploadToWebDarsanaAsync(
-            validationResult,
-            DarsanaConfig,
-            statusCallback: (msg) =>
-            {
-                PhaseStatusText = $"Tahap 4: {msg}";
-            });
-
-        if (!transferResult.Success)
-        {
-            CurrentStatus = BotStatus.Error;
-            StatusMessage = $"Tahap 4 Gagal: {transferResult.Message}";
-            PhaseStatusText = $"CSV lokal aman ({validationResult.FileName}), namun gagal diunggah ke Web Darsana.";
-            IsRunning = false;
-
+            sapError = $"Error SAP: {ex.Message}";
             ExecutionHistory.Insert(0, new ExecutionHistoryItem
             {
                 Timestamp = DateTime.Now,
-                Step = "Tahap 4: Upload Darsana",
-                FileName = validationResult.FileName,
-                RecordCount = validationResult.RowsImported,
+                Step = "SAP Error",
+                FileName = "-",
+                RecordCount = 0,
                 Status = BotStatus.Error,
-                Message = transferResult.Message
+                Message = ex.Message
             });
-            return;
         }
 
         // =========================================================================
         // TAHAP 5 (STREAM2): Unduh 3 Laporan Stream2 (H-1) & Upload ke Hosting
         // =========================================================================
+        CurrentPhase = 5;
+        ProgressValue = 80;
+        PhaseStatusText = "Tahap 5: Menghubungi Web Stream2 AirNav (Terminal, Enroute, Movement)...";
+
         var stream2UploadedFiles = new List<string>();
         var stream2Errors = new List<string>();
 
         try
         {
-            PhaseStatusText = "Tahap 5: Menghubungi Web Stream2 AirNav (Terminal, Enroute, Movement)...";
             var targetDate = DateTime.Today.AddDays(-Stream2Config.TargetDaysAgo);
             var stream2OutDir = Path.Combine(outputDir, "stream2", targetDate.ToString("yyyyMMdd"));
 
@@ -757,7 +721,7 @@ public partial class MainViewModel : ObservableObject
                 downloadMovement: Stream2Config.DownloadMovement,
                 statusCallback: (msg) => { PhaseStatusText = $"Stream2: {msg}"; });
 
-            if (streamResult.Success && streamResult.DownloadedFiles.Count > 0)
+            if (streamResult.DownloadedFiles.Count > 0)
             {
                 PhaseStatusText = $"Mengunggah {streamResult.DownloadedFiles.Count} file Stream2 ke server hosting...";
                 foreach (var sFile in streamResult.DownloadedFiles)
@@ -774,46 +738,102 @@ public partial class MainViewModel : ObservableObject
                         stream2Errors.Add($"{fName}: {upRes.Message}");
                     }
                 }
+
+                ExecutionHistory.Insert(0, new ExecutionHistoryItem
+                {
+                    Timestamp = DateTime.Now,
+                    Step = "Stream2 Unduh & Unggah",
+                    FileName = string.Join(", ", stream2UploadedFiles.Count > 0 ? stream2UploadedFiles : streamResult.DownloadedFiles.Select(Path.GetFileName)),
+                    RecordCount = stream2UploadedFiles.Count,
+                    Status = stream2Errors.Count == 0 ? BotStatus.Success : BotStatus.Warning,
+                    Message = stream2Errors.Count == 0 
+                        ? $"Berhasil mengunduh & mengunggah {stream2UploadedFiles.Count} file Stream2 ke hosting."
+                        : $"Sebagian file Stream2 gagal diunggah: {string.Join("; ", stream2Errors)}"
+                });
             }
-            else if (!streamResult.Success)
+            else
             {
-                stream2Errors.Add($"Stream2: {streamResult.Message}");
+                stream2Errors.Add($"Stream2 tidak menghasilkan file: {streamResult.Message}");
+                ExecutionHistory.Insert(0, new ExecutionHistoryItem
+                {
+                    Timestamp = DateTime.Now,
+                    Step = "Stream2 Download Gagal",
+                    FileName = "-",
+                    RecordCount = 0,
+                    Status = BotStatus.Warning,
+                    Message = streamResult.Message
+                });
             }
         }
         catch (Exception ex)
         {
-            stream2Errors.Add($"Stream2 Exception: {ex.Message}");
+            stream2Errors.Add($"Error Stream2: {ex.Message}");
+            ExecutionHistory.Insert(0, new ExecutionHistoryItem
+            {
+                Timestamp = DateTime.Now,
+                Step = "Stream2 Exception",
+                FileName = "-",
+                RecordCount = 0,
+                Status = BotStatus.Error,
+                Message = ex.Message
+            });
         }
 
+        // =========================================================================
+        // REKAP HASIL AKHIR & STATUS LOG
+        // =========================================================================
         ProgressValue = 100;
         IsRunning = false;
         LastRunTime = DateTime.Now.ToString("dd MMM yyyy, HH:mm:ss");
 
-        if (stream2Errors.Count == 0 && stream2UploadedFiles.Count > 0)
+        var summaryParts = new List<string>();
+        if (sapSuccess)
+        {
+            summaryParts.Add($"SAP SUKSES ({sapRows} baris)");
+        }
+        else if (sapError != null)
+        {
+            summaryParts.Add($"SAP GAGAL ({sapError})");
+        }
+
+        if (stream2UploadedFiles.Count > 0)
+        {
+            summaryParts.Add($"Stream2 SUKSES ({stream2UploadedFiles.Count} file: {string.Join(", ", stream2UploadedFiles)})");
+        }
+        if (stream2Errors.Count > 0)
+        {
+            summaryParts.Add($"Stream2 CATATAN: {string.Join("; ", stream2Errors)}");
+        }
+
+        if (sapSuccess && stream2UploadedFiles.Count > 0 && stream2Errors.Count == 0)
         {
             CurrentStatus = BotStatus.Success;
-            StatusMessage = $"Sinkronisasi Penuh SUKSES! SAP ({transferResult.RowsImportedOnServer} baris) & {stream2UploadedFiles.Count} file Stream2 berhasil masuk ke server hosting.";
-            PhaseStatusText = $"Sukses Total: {validationResult.FileName} + {string.Join(", ", stream2UploadedFiles)} terunggah.";
+            StatusMessage = $"Sinkronisasi Penuh SUKSES! SAP ({sapRows} baris) & {stream2UploadedFiles.Count} file Stream2 berhasil masuk ke server hosting.";
+            PhaseStatusText = $"Sukses Total: {sapFileName} + {string.Join(", ", stream2UploadedFiles)} terunggah.";
         }
-        else if (stream2Errors.Count > 0)
+        else if (sapSuccess || stream2UploadedFiles.Count > 0)
         {
             CurrentStatus = BotStatus.Warning;
-            StatusMessage = $"SAP Sukses ({transferResult.RowsImportedOnServer} baris), namun Stream2 ada catatan: {string.Join("; ", stream2Errors)}";
-            PhaseStatusText = $"SAP terunggah. Stream2: {string.Join(", ", stream2Errors)}";
+            StatusMessage = $"Sinkronisasi Sebagian Berhasil: {string.Join(" | ", summaryParts)}";
+            PhaseStatusText = $"Selesai (Parsial): {string.Join(" | ", summaryParts)}";
         }
         else
         {
-            CurrentStatus = BotStatus.Success;
-            StatusMessage = $"Sinkronisasi SAP Selesai ({transferResult.RowsImportedOnServer} baris).";
-            PhaseStatusText = $"Sukses: {validationResult.FileName} terunggah.";
+            CurrentStatus = BotStatus.Error;
+            StatusMessage = $"Sinkronisasi Gagal: {string.Join(" | ", summaryParts)}";
+            PhaseStatusText = "Tidak ada data yang berhasil diunggah.";
         }
+
+        var allUploadedNames = new List<string>();
+        if (sapSuccess && sapFileName != "-") allUploadedNames.Add(sapFileName);
+        allUploadedNames.AddRange(stream2UploadedFiles);
 
         ExecutionHistory.Insert(0, new ExecutionHistoryItem
         {
             Timestamp = DateTime.Now,
-            Step = "Full Sync (SAP + Stream2)",
-            FileName = validationResult.FileName + (stream2UploadedFiles.Count > 0 ? $" + {stream2UploadedFiles.Count} XLSX Stream2" : ""),
-            RecordCount = transferResult.RowsImportedOnServer,
+            Step = "Ringkasan Manual / Jadwal Rutin",
+            FileName = allUploadedNames.Count > 0 ? string.Join(", ", allUploadedNames) : "-",
+            RecordCount = sapRows + stream2UploadedFiles.Count,
             Status = CurrentStatus,
             Message = StatusMessage
         });

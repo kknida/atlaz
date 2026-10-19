@@ -134,8 +134,8 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
-                                <TextBlock Text="Uji Coba Eksekusi Otomasi (Manual Run)" FontSize="16" FontWeight="Bold" Foreground="#0369A1"/>
-                                <TextBlock Text="Tekan tombol untuk menguji alur otomasi SAP ZFM001 secara langsung dari parameter yang telah Anda konfigurasi." 
+                                <TextBlock Text="Uji Coba Eksekusi Otomasi Penuh (Manual Run)" FontSize="16" FontWeight="Bold" Foreground="#0369A1"/>
+                                <TextBlock Text="Menjalankan siklus otomasi penuh: Ekspor CSV SAP GUI (ZFM001) + Unduh 3 Laporan Stream2 (Terminal, Enroute, Movement) ➔ Otomatis Upload ke Server Hosting." 
                                            FontSize="12" Foreground="#0284C7" Margin="0,4,0,0" TextWrapping="Wrap"/>
                             </StackPanel>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
@@ -145,7 +145,7 @@
                                             Background="#E2E8F0" Foreground="#0F172A" 
                                             FontSize="12.5" FontWeight="SemiBold" 
                                             Padding="12,10" Margin="0,0,8,0" BorderThickness="0" Cursor="Hand"/>
-                                    <Button Content="▶  RUN MANUAL SEKARANG (Tahap 1-4)" 
+                                    <Button Content="▶  RUN MANUAL SEKARANG (SAP + Stream2 ➔ Hosting)" 
                                             Command="{Binding RunManualSyncCommand}"
                                             Background="#0284C7" Foreground="#FFFFFF" 
                                             FontSize="13" FontWeight="Bold" 
